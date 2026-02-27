@@ -1,8 +1,9 @@
 """Database connection and initialisation."""
 
+import os
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
-import os
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./networkcrawler.db")
 
