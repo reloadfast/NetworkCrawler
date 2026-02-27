@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<!-- Edge-case fixture: host with no <ports> element at all -->
+<nmaprun scanner="nmap" args="nmap -sV -O --top-ports 1000 -e eth0 -oX /tmp/out.xml 192.168.1.77"
+         start="1700000300" version="7.94" xmloutputversion="1.04">
+
+  <host starttime="1700000301" endtime="1700000302">
+    <status state="up" reason="arp-response" reason_ttl="0"/>
+    <address addr="192.168.1.77" addrtype="ipv4"/>
+    <address addr="CA:FE:00:00:00:01" addrtype="mac" vendor=""/>
+  </host>
+
+</nmaprun>

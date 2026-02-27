@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<nmaprun scanner="nmap" args="nmap -sV -O --top-ports 1000 -e eth0 -oX /tmp/out.xml 192.168.1.1 192.168.1.10"
+         start="1700000000" version="7.94" xmloutputversion="1.04">
+
+  <!-- Host 1: router with two open ports and OS detection -->
+  <host starttime="1700000001" endtime="1700000010">
+    <status state="up" reason="arp-response" reason_ttl="0"/>
+    <address addr="192.168.1.1" addrtype="ipv4"/>
+    <address addr="AA:BB:CC:DD:EE:01" addrtype="mac" vendor="Cisco Systems"/>
+    <hostnames>
+      <hostname name="router.local" type="PTR"/>
+    </hostnames>
+    <ports>
+      <port protocol="tcp" portid="22">
+        <state state="open" reason="syn-ack" reason_ttl="64"/>
+        <service name="ssh" product="OpenSSH" version="8.9p1" extrainfo="Ubuntu" method="probed" conf="10"/>
+      </port>
+      <port protocol="tcp" portid="80">
+        <state state="open" reason="syn-ack" reason_ttl="64"/>
+        <service name="http" product="nginx" version="1.24.0" extrainfo="" method="probed" conf="10"/>
+      </port>
+      <port protocol="tcp" portid="443">
+        <state state="closed" reason="rst" reason_ttl="64"/>
+        <service name="https" method="table" conf="3"/>
+      </port>
+    </ports>
+    <os>
+      <osmatch name="Linux 5.4" accuracy="95" line="12345">
+        <osclass type="general purpose" vendor="Linux" osfamily="Linux" osgen="5.X" accuracy="95"/>
+      </osmatch>
+      <osmatch name="Linux 4.15" accuracy="80" line="12346">
+        <osclass type="general purpose" vendor="Linux" osfamily="Linux" osgen="4.X" accuracy="80"/>
+      </osmatch>
+    </os>
+  </host>
+
+  <!-- Host 2: workstation, no OS detection, MAC absent (nmap didn't see it at L2) -->
+  <host starttime="1700000011" endtime="1700000020">
+    <status state="up" reason="echo-reply" reason_ttl="64"/>
+    <address addr="192.168.1.10" addrtype="ipv4"/>
+    <hostnames/>
+    <ports>
+      <port protocol="tcp" portid="445">
+        <state state="open" reason="syn-ack" reason_ttl="128"/>
+        <service name="microsoft-ds" product="Microsoft Windows" version="" extrainfo="workgroup: WORKGROUP" method="probed" conf="10"/>
+      </port>
+    </ports>
+    <os/>
+  </host>
+
+</nmaprun>
