@@ -1,0 +1,104 @@
+name: Docker — Build & Push
+
+# Triggers:
+#   • Push to main             → builds and pushes :latest + :<sha>
+#   • Version tag (v*)         → builds and pushes :latest + :<semver>  (e.g. v1.2.3 → 1.2.3)
+#   • Pull request against main → build-only (no push) for image validation
+#
+# Required GitHub repository secrets (Settings → Secrets → Actions):
+#   DOCKERHUB_USERNAME   — your Docker Hub username  (talesofthemoon)
+#   DOCKERHUB_TOKEN      — Docker Hub access token   (Account Settings → Security → New Access Token)
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE: talesofthemoon/networkcrawler
+
+jobs:
+  build:
+    name: Build & Push
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write   # kept for potential future GHCR mirror
+
+    steps:
+      # ── Checkout ────────────────────────────────────────────────────────────
+      - uses: actions/checkout@v4
+
+      # ── QEMU — multi-arch emulation (linux/amd64 + linux/arm64) ─────────────
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # ── Buildx — multi-platform builder ─────────────────────────────────────
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ── Authenticate to Docker Hub (skip on PR builds) ──────────────────────
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # ── Generate image tags and OCI labels ──────────────────────────────────
+      #   Push events produce:
+      #     main branch  → :latest  +  :<short-sha>
+      #     v1.2.3 tag   → :latest  +  :1.2.3
+      - name: Generate Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            # Always tag :latest on main / tag pushes
+            type=raw,value=latest,enable={{is_default_branch}}
+            # Short SHA for main-branch pushes (e.g. sha-abc1234)
+            type=sha,prefix=sha-,enable={{is_default_branch}}
+            # Semver tags: v1.2.3 → 1.2.3, 1.2, 1
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+          labels: |
+            org.opencontainers.image.title=NetworkCrawler
+            org.opencontainers.image.description=LAN security posture scanner for home lab operators
+            org.opencontainers.image.vendor=talesofthemoon
+            org.opencontainers.image.licenses=MIT
+
+      # ── Build (and push on non-PR events) ───────────────────────────────────
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          # Build both amd64 (x86 Unraid servers) and arm64 (Pi / ARM NAS)
+          platforms: linux/amd64,linux/arm64
+          # Only push when this is NOT a pull_request event
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Layer caching via GitHub Actions cache backend
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ── Update Docker Hub repo description (main branch only) ───────────────
+      - name: Update Docker Hub description
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ env.IMAGE }}
+          short-description: "LAN security posture scanner for home lab operators"
+          readme-filepath: ./README.md
