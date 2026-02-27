@@ -49,7 +49,7 @@ def upsert_device(
     vendor: str | None = None,
     hostname: str | None = None,
     os_guess: str | None = None,
-) -> "Device":
+) -> Device:
     """Insert or update a Device row keyed on ip_address.
 
     If a Device with the given ip_address already exists, only non-None
@@ -58,8 +58,9 @@ def upsert_device(
 
     Returns the Device instance (either existing or newly created).
     """
-    from app.models.device import Device
     from sqlalchemy import select
+
+    from app.models.device import Device
 
     stmt = select(Device).where(Device.ip_address == ip_address)
     device: Device | None = session.execute(stmt).scalar_one_or_none()
@@ -94,14 +95,15 @@ def upsert_port(
     protocol: str = "tcp",
     service_name: str | None = None,
     version_banner: str | None = None,
-) -> "Device":
+) -> Device:
     """Insert or update a Port row keyed on (device_id, port_number, protocol).
 
     Non-None fields overwrite existing values.  Caller must commit.
     Returns the Port instance.
     """
-    from app.models.device import Port
     from sqlalchemy import select
+
+    from app.models.device import Port
 
     stmt = select(Port).where(
         Port.device_id == device_id,
