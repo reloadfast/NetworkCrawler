@@ -18,12 +18,12 @@
   --color-text-secondary: #64748b;
 
   /* Accents */
-  --color-accent-positive: #10b981;  /* Emerald — healthy, no issues */
-  --color-accent-warning: #f59e0b;   /* Amber — medium risk */
-  --color-accent-danger: #ef4444;    /* Red — critical / high risk */
+  --color-accent-positive: #10b981; /* Emerald — healthy, no issues */
+  --color-accent-warning: #f59e0b; /* Amber — medium risk */
+  --color-accent-danger: #ef4444; /* Red — critical / high risk */
 }
 
-[data-theme='dark'] {
+[data-theme="dark"] {
   --color-background: #0f172a;
   --color-surface: #1e293b;
   --color-border: #334155;
@@ -45,5 +45,8 @@
 body {
   background-color: var(--color-background);
   color: var(--color-text-primary);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
 }

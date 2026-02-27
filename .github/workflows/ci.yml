@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Python: lint, test, security ─────────────────────────────────────────
+  python:
+    name: Python (lint + test + audit)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Ruff — lint
+        run: ruff check .
+
+      - name: Ruff — format check
+        run: ruff format --check .
+
+      - name: Check for bare noqa (without justification comment)
+        # Fail if any line has `# noqa` not followed by an inline comment
+        # e.g.  `# noqa: E501` alone is a bare suppress; `# noqa: E501 — reason` passes
+        run: |
+          if grep -rn --include="*.py" '# noqa' . | grep -v '# noqa.*—\|# noqa.*--\|# noqa.*:.*#'; then
+            echo "ERROR: bare '# noqa' found without inline justification comment."
+            exit 1
+          fi
+
+      - name: pytest — unit + integration (mocked I/O only)
+        run: |
+          pytest -m "unit or integration" \
+            --cov=app \
+            --cov-report=term-missing \
+            --cov-fail-under=80 \
+            -v
+
+      - name: pip-audit — fail on HIGH severity CVEs
+        run: pip-audit --require-hashes -r requirements.txt --vulnerability-service osv 2>/dev/null \
+             || pip-audit -r requirements.txt --vulnerability-service osv
+
+
+  # ── JavaScript / TypeScript: lint, test, security ────────────────────────
+  javascript:
+    name: JS/TS (lint + test + audit)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Prettier — format check
+        run: npx prettier --check "src/**/*.{ts,tsx,css}"
+
+      - name: Check for bare eslint-disable (without justification comment)
+        # Allow: `// eslint-disable-next-line rule — reason`
+        # Deny:  `// eslint-disable-next-line rule` with no trailing comment
+        run: |
+          if grep -rn --include="*.ts" --include="*.tsx" 'eslint-disable' src/ \
+             | grep -v 'eslint-disable.*—\|eslint-disable.*--\|eslint-disable.*: '; then
+            echo "ERROR: bare 'eslint-disable' found without inline justification comment."
+            exit 1
+          fi
+
+      - name: Vitest — run tests with coverage
+        run: npm run test:coverage
+
+      - name: npm audit — fail on HIGH severity
+        run: npm audit --audit-level=high
