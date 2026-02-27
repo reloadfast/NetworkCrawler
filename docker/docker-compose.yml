@@ -2,9 +2,15 @@ version: "3.9"
 
 # NetworkCrawler — Docker Compose stack
 #
-# Requires host network mode so arp-scan can reach the LAN broadcast domain.
-# NET_RAW capability is required for arp-scan and nmap raw socket access.
-# Container runs as uid 1000 (non-root) — defined in the Dockerfile.
+# ┌─ IMPORTANT NOTES ──────────────────────────────────────────────────────────┐
+# │  network_mode: host                                                         │
+# │    Required so arp-scan can reach the LAN broadcast domain. The app is      │
+# │    accessible at http://<host-ip>:8000 — no port mapping needed.            │
+# │                                                                              │
+# │  cap_add: [NET_RAW]                                                          │
+# │    Grants raw socket access for arp-scan and nmap without running as root.   │
+# │    The container still runs as uid 1000 (non-root, set in Dockerfile).       │
+# └─────────────────────────────────────────────────────────────────────────────┘
 
 services:
   networkcrawler:
@@ -12,32 +18,38 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     container_name: networkcrawler
+    image: networkcrawler:latest
 
-    # Host network mode: required for ARP visibility across the LAN
+    # Host networking — required for ARP visibility across the LAN subnet
     network_mode: host
 
-    # Raw socket access for nmap and arp-scan
+    # Raw-socket capability — required for arp-scan and nmap; runs as uid 1000
     cap_add:
       - NET_RAW
 
-    # Never run as root
-    # (user is set in Dockerfile; reinforced here)
-    user: "1000:1000"
-
+    # All env vars wired from .env (copy .env.example → .env before first run)
     environment:
       NETWORK_INTERFACE: ${NETWORK_INTERFACE:-eth0}
       SCAN_SUBNET: ${SCAN_SUBNET:-192.168.1.0/24}
       SCAN_INTERVAL_SECONDS: ${SCAN_INTERVAL_SECONDS:-3600}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Database path inside the container; maps to the volume below
+      DATABASE_URL: sqlite:////app/data/networkcrawler.db
 
     volumes:
-      # Persist the SQLite database across restarts
+      # Persist the SQLite database across container restarts and upgrades
       - networkcrawler_data:/app/data
 
     restart: unless-stopped
 
-    # Port is accessible only within the LAN via host networking (no explicit port mapping needed)
-    # Access the UI at http://<host-ip>:8000
+    # Healthcheck mirrors the Dockerfile HEALTHCHECK (Compose honours it too)
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
 volumes:
   networkcrawler_data:
