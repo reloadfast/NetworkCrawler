@@ -5,6 +5,12 @@ name: Docker — Build & Push
 #   • Version tag (v*)         → builds and pushes :latest + :<semver>  (e.g. v1.2.3 → 1.2.3)
 #   • Pull request against main → build-only (no push) for image validation
 #
+# Architecture strategy — matrix + merge-manifests:
+#   Each arch builds natively on its own runner in parallel (amd64 on ubuntu-latest,
+#   arm64 on ubuntu-24.04-arm), pushes a per-arch digest, then a final "merge" job
+#   assembles them into a single multi-arch manifest. This avoids 30+ min QEMU
+#   emulation for arm64 on free GitHub runners.
+#
 # Required GitHub repository secrets (Settings → Secrets → Actions):
 #   DOCKERHUB_USERNAME   — your Docker Hub username  (talesofthemoon)
 #   DOCKERHUB_TOKEN      — Docker Hub access token   (Account Settings → Security → New Access Token)
@@ -24,27 +30,38 @@ env:
   IMAGE: talesofthemoon/networkcrawler
 
 jobs:
+  # ── Job 1: Build one arch per runner ──────────────────────────────────────────
   build:
-    name: Build & Push
-    runs-on: ubuntu-latest
+    name: Build (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
 
     permissions:
       contents: read
-      packages: write   # kept for potential future GHCR mirror
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+
+    outputs:
+      # Each matrix job writes its digest; the merge job reads both.
+      # GitHub Actions matrix outputs are keyed by a safe arch suffix.
+      digest-amd64: ${{ steps.push.outputs.digest }}
+      digest-arm64: ${{ steps.push.outputs.digest }}
 
     steps:
-      # ── Checkout ────────────────────────────────────────────────────────────
+      # ── Checkout ──────────────────────────────────────────────────────────────
       - uses: actions/checkout@v4
 
-      # ── QEMU — multi-arch emulation (linux/amd64 + linux/arm64) ─────────────
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      # ── Buildx — multi-platform builder ─────────────────────────────────────
+      # ── Buildx ────────────────────────────────────────────────────────────────
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # ── Authenticate to Docker Hub (skip on PR builds) ──────────────────────
+      # ── Authenticate to Docker Hub (skip on PR builds) ────────────────────────
       - name: Log in to Docker Hub
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
@@ -52,21 +69,98 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # ── Generate image tags and OCI labels ──────────────────────────────────
-      #   Push events produce:
-      #     main branch  → :latest  +  :<short-sha>
-      #     v1.2.3 tag   → :latest  +  :1.2.3
+      # ── Generate OCI labels (tags computed in merge job) ──────────────────────
+      - name: Generate Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          labels: |
+            org.opencontainers.image.title=NetworkCrawler
+            org.opencontainers.image.description=LAN security posture scanner for home lab operators
+            org.opencontainers.image.vendor=talesofthemoon
+            org.opencontainers.image.licenses=MIT
+
+      # ── Build and push per-arch digest ────────────────────────────────────────
+      #   On PRs: build only (no push, no digest needed).
+      #   On push/tag: push as a temporary digest-only image (no manifest tag yet).
+      - name: Build and push per-arch digest
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: ${{ matrix.platform }}
+          # Push a digest-only image (no tag) on non-PR events
+          push: ${{ github.event_name != 'pull_request' }}
+          # No tags here — merge job applies the final tags
+          outputs: ${{ github.event_name != 'pull_request' && 'type=image,name=target,push-by-digest=true,name-canonical=true,push=true' || '' }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Per-arch GHA cache (keyed by platform so they don't collide)
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+
+      # ── Export digest to a file for the merge job ─────────────────────────────
+      - name: Export digest
+        if: github.event_name != 'pull_request'
+        run: |
+          mkdir -p /tmp/digests
+          # digest is e.g. sha256:abc123...
+          digest="${{ steps.push.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # ── Job 2: Merge per-arch digests into a single multi-arch manifest ───────────
+  merge:
+    name: Merge manifests
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    needs: build
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Download both arch digests ─────────────────────────────────────────────
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digest-*
+          merge-multiple: true
+
+      # ── Buildx ────────────────────────────────────────────────────────────────
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ── Authenticate ──────────────────────────────────────────────────────────
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # ── Compute final tags ────────────────────────────────────────────────────
+      #   main branch  → :latest  +  :<short-sha>
+      #   v1.2.3 tag   → :latest  +  :1.2.3  +  :1.2  +  :1
       - name: Generate Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE }}
           tags: |
-            # Always tag :latest on main / tag pushes
             type=raw,value=latest,enable={{is_default_branch}}
-            # Short SHA for main-branch pushes (e.g. sha-abc1234)
             type=sha,prefix=sha-,enable={{is_default_branch}}
-            # Semver tags: v1.2.3 → 1.2.3, 1.2, 1
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
@@ -76,25 +170,27 @@ jobs:
             org.opencontainers.image.vendor=talesofthemoon
             org.opencontainers.image.licenses=MIT
 
-      # ── Build (and push on non-PR events) ───────────────────────────────────
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: docker/Dockerfile
-          # Build both amd64 (x86 Unraid servers) and arm64 (Pi / ARM NAS)
-          platforms: linux/amd64,linux/arm64
-          # Only push when this is NOT a pull_request event
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          # Layer caching via GitHub Actions cache backend
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      # ── Merge digests into a multi-arch manifest ──────────────────────────────
+      - name: Create and push multi-arch manifest
+        working-directory: /tmp/digests
+        run: |
+          # Build --tag flags from metadata-action output
+          TAGS=$(jq -cr '.tags | map("-t " + .) | join(" ")' <<< '${{ steps.meta.outputs.json }}')
 
-      # ── Update Docker Hub repo description (main branch only) ───────────────
+          # Build digest references: IMAGE@sha256:<hex>
+          DIGESTS=$(printf '${{ env.IMAGE }}@sha256:%s ' *)
+
+          # shellcheck disable=SC2086  # TAGS and DIGESTS are intentionally word-split
+          docker buildx imagetools create $TAGS $DIGESTS
+
+      # ── Inspect the resulting manifest (informational) ────────────────────────
+      - name: Inspect manifest
+        run: docker buildx imagetools inspect ${{ env.IMAGE }}:latest
+
+      # ── Update Docker Hub repo description ────────────────────────────────────
       - name: Update Docker Hub description
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true   # non-fatal: token scope issues won't fail the build
         uses: peter-evans/dockerhub-description@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
