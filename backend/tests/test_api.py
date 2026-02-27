@@ -23,8 +23,8 @@ from sqlalchemy.pool import StaticPool
 
 @pytest.fixture(scope="module")
 def db_engine():
-    import app.models.device  # noqa: F401
-    import app.models.scan  # noqa: F401
+    import app.models.device  # noqa: F401 — side-effect import registers ORM tables
+    import app.models.scan  # noqa: F401 — side-effect import registers ORM tables
     from app.db import Base
 
     # StaticPool keeps a single underlying connection so all sessions share
@@ -44,7 +44,7 @@ def client(db_engine):
     """TestClient wired to in-memory DB; scheduler disabled."""
     from app.db import get_db
 
-    TestSession = sessionmaker(bind=db_engine)  # noqa: N806
+    TestSession = sessionmaker(bind=db_engine)  # noqa: N806 — PEP-8 class name; sessionmaker convention
 
     def override_get_db():
         db = TestSession()
@@ -70,7 +70,7 @@ def seeded_db(db_engine):
     from app.models.device import Device, Port
     from app.models.scan import Scan
 
-    Session = sessionmaker(bind=db_engine)  # noqa: N806
+    Session = sessionmaker(bind=db_engine)  # noqa: N806 — PEP-8 class name; sessionmaker convention
     db = Session()
 
     device = Device(

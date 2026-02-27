@@ -25,8 +25,8 @@ def in_memory_session_factory():
     StaticPool is required so every session shares the same underlying connection
     and therefore sees the same in-memory database.
     """
-    import app.models.device  # noqa: F401
-    import app.models.scan  # noqa: F401
+    import app.models.device  # noqa: F401 — side-effect import registers ORM tables
+    import app.models.scan  # noqa: F401 — side-effect import registers ORM tables
     from app.db import Base
 
     engine = create_engine(
