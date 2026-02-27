@@ -28,7 +28,10 @@ FROM python:3.11-slim AS production
 
 LABEL org.opencontainers.image.title="NetworkCrawler" \
       org.opencontainers.image.description="LAN security posture scanner for home lab operators" \
-      org.opencontainers.image.source="https://github.com/reloadfast/NetworkCrawler"
+      org.opencontainers.image.source="https://github.com/reloadfast/NetworkCrawler" \
+      org.opencontainers.image.url="https://hub.docker.com/r/talesofthemoon/networkcrawler" \
+      org.opencontainers.image.vendor="talesofthemoon" \
+      org.opencontainers.image.licenses="MIT"
 
 # Install system-level scanning tools
 RUN apt-get update \

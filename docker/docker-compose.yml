@@ -10,15 +10,23 @@ version: "3.9"
 # │  cap_add: [NET_RAW]                                                          │
 # │    Grants raw socket access for arp-scan and nmap without running as root.   │
 # │    The container still runs as uid 1000 (non-root, set in Dockerfile).       │
+# │                                                                              │
+# │  IMAGE                                                                       │
+# │    By default pulls talesofthemoon/networkcrawler:latest from Docker Hub.   │
+# │    To build locally instead:                                                 │
+# │      docker compose -f docker/docker-compose.yml build                      │
+# │    or set IMAGE_TAG env var to a specific digest/sha tag.                   │
 # └─────────────────────────────────────────────────────────────────────────────┘
 
 services:
   networkcrawler:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
+    image: talesofthemoon/networkcrawler:${IMAGE_TAG:-latest}
     container_name: networkcrawler
-    image: networkcrawler:latest
+
+    # Uncomment the build block to build from source instead of pulling from Hub:
+    # build:
+    #   context: ..
+    #   dockerfile: docker/Dockerfile
 
     # Host networking — required for ARP visibility across the LAN subnet
     network_mode: host
@@ -54,3 +62,4 @@ services:
 volumes:
   networkcrawler_data:
     driver: local
+
