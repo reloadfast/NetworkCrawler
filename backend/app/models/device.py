@@ -25,6 +25,7 @@ class Device(Base):
     last_seen = Column(DateTime, default=func.now(), onupdate=func.now())
 
     ports = relationship("Port", back_populates="device", cascade="all, delete-orphan")
+    risks = relationship("Risk", back_populates="device", cascade="all, delete-orphan")
 
 
 class Port(Base):

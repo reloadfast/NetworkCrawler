@@ -1,4 +1,4 @@
-"""REST API — /api/devices and /api/scans endpoints."""
+"""REST API — /api/devices, /api/scans, and /api/risks endpoints."""
 
 from __future__ import annotations
 
@@ -138,4 +138,98 @@ def _scan_to_out(s) -> ScanOut:  # noqa: ANN001 — SQLAlchemy instance
         duration_seconds=s.duration_seconds,
         devices_found=s.devices_found,
         error_message=s.error_message,
+    )
+
+
+# ── /api/risks ────────────────────────────────────────────────────────────────
+
+
+class RiskOut(BaseModel):
+    id: int
+    device_id: int
+    severity: str
+    check_id: str
+    title: str
+    description: str
+    detected_at: str | None
+
+    model_config = {"from_attributes": True}
+
+
+class RiskSummary(BaseModel):
+    critical: int
+    high: int
+    medium: int
+    low: int
+    total: int
+
+
+@router.get("/risks", response_model=list[RiskOut])
+def list_risks(db: Annotated[Session, Depends(get_db)]) -> list[RiskOut]:
+    """Return all risk findings, ordered by severity then detected_at."""
+    from app.models.risk import Risk
+
+    severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+    stmt = select(Risk)
+    risks = db.execute(stmt).scalars().all()
+    risks_sorted = sorted(
+        risks, key=lambda r: (severity_order.get(r.severity, 99), r.detected_at or "")
+    )
+    return [_risk_to_out(r) for r in risks_sorted]
+
+
+@router.get("/risks/summary", response_model=RiskSummary)
+def risks_summary(db: Annotated[Session, Depends(get_db)]) -> RiskSummary:
+    """Return a count of risks per severity level."""
+    from app.models.risk import Risk
+
+    all_risks = db.execute(select(Risk)).scalars().all()
+    counts: dict[str, int] = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+    for r in all_risks:
+        if r.severity in counts:
+            counts[r.severity] += 1
+    return RiskSummary(
+        critical=counts["critical"],
+        high=counts["high"],
+        medium=counts["medium"],
+        low=counts["low"],
+        total=sum(counts.values()),
+    )
+
+
+@router.get("/risks/{risk_id}", response_model=RiskOut)
+def get_risk(risk_id: int, db: Annotated[Session, Depends(get_db)]) -> RiskOut:
+    """Return a single risk by ID."""
+    from app.models.risk import Risk
+
+    stmt = select(Risk).where(Risk.id == risk_id)
+    risk = db.execute(stmt).scalar_one_or_none()
+    if risk is None:
+        raise HTTPException(status_code=404, detail="Risk not found")
+    return _risk_to_out(risk)
+
+
+@router.get("/devices/{device_id}/risks", response_model=list[RiskOut])
+def device_risks(device_id: int, db: Annotated[Session, Depends(get_db)]) -> list[RiskOut]:
+    """Return all risks for a specific device."""
+    from app.models.device import Device
+    from app.models.risk import Risk
+
+    device = db.execute(select(Device).where(Device.id == device_id)).scalar_one_or_none()
+    if device is None:
+        raise HTTPException(status_code=404, detail="Device not found")
+    stmt = select(Risk).where(Risk.device_id == device_id)
+    risks = db.execute(stmt).scalars().all()
+    return [_risk_to_out(r) for r in risks]
+
+
+def _risk_to_out(r) -> RiskOut:  # noqa: ANN001 — SQLAlchemy instance
+    return RiskOut(
+        id=r.id,
+        device_id=r.device_id,
+        severity=r.severity,
+        check_id=r.check_id,
+        title=r.title,
+        description=r.description,
+        detected_at=r.detected_at.isoformat() if r.detected_at else None,
     )

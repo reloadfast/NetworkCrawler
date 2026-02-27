@@ -41,6 +41,13 @@ def run_scan_and_persist(triggered_by: str = "scheduler") -> int:
         _persist_result(db, result)
         devices_found = len(result.hosts) + len(result.arp_only)
 
+        # Run misconfiguration checks against all discovered devices
+        from app.analysis import (
+            run_all_checks,  # noqa: PLC0415 — deferred to avoid circular import at module level
+        )
+
+        run_all_checks(db)
+
         scan.status = "completed"
         scan.finished_at = datetime.now(tz=UTC)
         scan.duration_seconds = round(time.monotonic() - t0, 2)
