@@ -1,17 +1,24 @@
-"""Device and Port SQLAlchemy models (stub — full implementation in Phase 2)."""
+"""Device and Port SQLAlchemy ORM models."""
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 
 from app.db import Base
 
 
 class Device(Base):
+    """A network device discovered by arp-scan and/or nmap."""
+
     __tablename__ = "devices"
+    __table_args__ = (
+        # One row per IP address — upserts update in place rather than inserting duplicates.
+        UniqueConstraint("ip_address", name="uq_devices_ip_address"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     ip_address = Column(String, nullable=False, index=True)
     mac_address = Column(String, nullable=True)
+    vendor = Column(String, nullable=True)  # hardware vendor from arp-scan OUI lookup
     hostname = Column(String, nullable=True)
     os_guess = Column(String, nullable=True)
     first_seen = Column(DateTime, default=func.now())
@@ -21,7 +28,13 @@ class Device(Base):
 
 
 class Port(Base):
+    """An open TCP/UDP port observed on a Device during an nmap scan."""
+
     __tablename__ = "ports"
+    __table_args__ = (
+        # One row per (device, port, protocol) tuple.
+        UniqueConstraint("device_id", "port_number", "protocol", name="uq_ports_device_port_proto"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     device_id = Column(Integer, ForeignKey("devices.id"), nullable=False)
