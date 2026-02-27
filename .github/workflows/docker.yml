@@ -83,7 +83,9 @@ jobs:
 
       # ── Build and push per-arch digest ────────────────────────────────────────
       #   On PRs: build only (no push, no digest needed).
-      #   On push/tag: push as a temporary digest-only image (no manifest tag yet).
+      #   On push/tag: push digest-only (no manifest tag) via outputs; the merge
+      #   job applies final tags. Do NOT also set push: true — that would attempt
+      #   a tagged push which has no tag and causes an auth scope error.
       - name: Build and push per-arch digest
         id: push
         uses: docker/build-push-action@v6
@@ -91,10 +93,9 @@ jobs:
           context: .
           file: docker/Dockerfile
           platforms: ${{ matrix.platform }}
-          # Push a digest-only image (no tag) on non-PR events
-          push: ${{ github.event_name != 'pull_request' }}
-          # No tags here — merge job applies the final tags
-          outputs: ${{ github.event_name != 'pull_request' && 'type=image,name=target,push-by-digest=true,name-canonical=true,push=true' || '' }}
+          # Use outputs to drive push so push-by-digest works correctly.
+          # On PRs: type=docker (local load, no push). On push/tag: digest-only push.
+          outputs: ${{ github.event_name != 'pull_request' && format('type=image,name={0},push-by-digest=true,name-canonical=true,push=true', env.IMAGE) || 'type=docker' }}
           labels: ${{ steps.meta.outputs.labels }}
           # Per-arch GHA cache (keyed by platform so they don't collide)
           cache-from: type=gha,scope=${{ matrix.platform }}
