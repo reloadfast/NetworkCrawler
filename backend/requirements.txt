@@ -18,7 +18,7 @@ pytest-asyncio==0.23.*
 httpx==0.27.*          # async test client for FastAPI
 
 # Linting / formatting
-ruff==0.4.*
+ruff==0.15.*
 
 # Security audit
 pip-audit==2.*
