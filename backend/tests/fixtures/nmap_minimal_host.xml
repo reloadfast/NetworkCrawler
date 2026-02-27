@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<!-- Minimal fixture: single host, no hostname element, no OS element, no open ports -->
+<nmaprun scanner="nmap" args="nmap -sV -O --top-ports 1000 -e eth0 -oX /tmp/out.xml 192.168.1.50"
+         start="1700000100" version="7.94" xmloutputversion="1.04">
+
+  <host starttime="1700000101" endtime="1700000105">
+    <status state="up" reason="arp-response" reason_ttl="0"/>
+    <address addr="192.168.1.50" addrtype="ipv4"/>
+    <address addr="DE:AD:BE:EF:00:01" addrtype="mac" vendor=""/>
+    <ports>
+      <port protocol="tcp" portid="9">
+        <state state="filtered" reason="no-response" reason_ttl="0"/>
+        <service name="discard" method="table" conf="3"/>
+      </port>
+    </ports>
+  </host>
+
+</nmaprun>

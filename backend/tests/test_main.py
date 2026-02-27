@@ -20,19 +20,19 @@ def client():
             yield c
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_health_returns_200(client):
     response = client.get("/health")
     assert response.status_code == 200
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_health_body(client):
     response = client.get("/health")
     assert response.json() == {"status": "ok"}
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_openapi_schema_accessible(client):
     response = client.get("/openapi.json")
     assert response.status_code == 200
@@ -40,7 +40,7 @@ def test_openapi_schema_accessible(client):
     assert data["info"]["title"] == "NetworkCrawler"
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_docs_accessible(client):
     response = client.get("/docs")
     assert response.status_code == 200
