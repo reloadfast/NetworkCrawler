@@ -1,0 +1,49 @@
+/* NetworkCrawler — global CSS theme tokens
+ *
+ * Both dark and light themes are defined here using CSS custom properties.
+ * Components reference only semantic tokens (never raw colours).
+ * Full token values are populated in Phase 4 (UI) per UI_style.md.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* Surface */
+  --color-background: #ffffff;
+  --color-surface: #f8f9fa;
+  --color-border: #e2e8f0;
+
+  /* Text */
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #64748b;
+
+  /* Accents */
+  --color-accent-positive: #10b981;  /* Emerald — healthy, no issues */
+  --color-accent-warning: #f59e0b;   /* Amber — medium risk */
+  --color-accent-danger: #ef4444;    /* Red — critical / high risk */
+}
+
+[data-theme='dark'] {
+  --color-background: #0f172a;
+  --color-surface: #1e293b;
+  --color-border: #334155;
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-accent-positive: #34d399;
+  --color-accent-warning: #fbbf24;
+  --color-accent-danger: #f87171;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: system-ui, -apple-system, sans-serif;
+}

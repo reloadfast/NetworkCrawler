@@ -1,0 +1,44 @@
+version: "3.9"
+
+# NetworkCrawler — Docker Compose stack
+#
+# Requires host network mode so arp-scan can reach the LAN broadcast domain.
+# NET_RAW capability is required for arp-scan and nmap raw socket access.
+# Container runs as uid 1000 (non-root) — defined in the Dockerfile.
+
+services:
+  networkcrawler:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: networkcrawler
+
+    # Host network mode: required for ARP visibility across the LAN
+    network_mode: host
+
+    # Raw socket access for nmap and arp-scan
+    cap_add:
+      - NET_RAW
+
+    # Never run as root
+    # (user is set in Dockerfile; reinforced here)
+    user: "1000:1000"
+
+    environment:
+      NETWORK_INTERFACE: ${NETWORK_INTERFACE:-eth0}
+      SCAN_SUBNET: ${SCAN_SUBNET:-192.168.1.0/24}
+      SCAN_INTERVAL_SECONDS: ${SCAN_INTERVAL_SECONDS:-3600}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+    volumes:
+      # Persist the SQLite database across restarts
+      - networkcrawler_data:/app/data
+
+    restart: unless-stopped
+
+    # Port is accessible only within the LAN via host networking (no explicit port mapping needed)
+    # Access the UI at http://<host-ip>:8000
+
+volumes:
+  networkcrawler_data:
+    driver: local
