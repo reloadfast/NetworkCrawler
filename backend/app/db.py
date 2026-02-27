@@ -28,6 +28,7 @@ class Base(DeclarativeBase):
 def init_db() -> None:
     """Create all tables if they don't exist."""
     from app.models import device as _device  # noqa: F401 — side-effect import registers ORM tables
+    from app.models import scan as _scan  # noqa: F401 — side-effect import registers ORM tables
 
     Base.metadata.create_all(bind=engine)
 
