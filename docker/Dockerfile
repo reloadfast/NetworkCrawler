@@ -1,53 +1,73 @@
 # NetworkCrawler — Multi-stage Dockerfile
 #
-# Stage 1: build the React frontend
-# Stage 2: production image serving both FastAPI + static frontend assets
+# Stage 1 — frontend build (Node): compiles the React/Vite app to static assets.
+# Stage 2 — production image (Python slim): runs FastAPI and serves frontend assets.
 #
-# Security: container runs as non-root user (uid 1000)
-# Network:  requires host network mode + --cap-add=NET_RAW for arp-scan/nmap
+# Security notes:
+#   • Container runs as a non-root user (uid/gid 1000).
+#   • Raw socket access for nmap/arp-scan is granted via --cap-add=NET_RAW at
+#     runtime (see docker-compose.yml). Do NOT run the container as root.
+#   • Host network mode is required so arp-scan can reach the LAN broadcast domain.
 
-# ── Stage 1: frontend build ────────────────────────────────────────────────
+# ── Stage 1: build the React frontend ────────────────────────────────────────
 FROM node:20-alpine AS frontend-build
 
-WORKDIR /build/frontend
+WORKDIR /build
 
 COPY frontend/package.json frontend/package-lock.json* ./
+# ci install — deterministic, skips devDep postinstall scripts on prod
 RUN npm ci --prefer-offline
 
 COPY frontend/ ./
 RUN npm run build
-# Output: /build/frontend/dist
+# Outputs compiled assets to /build/dist
 
-# ── Stage 2: production image ─────────────────────────────────────────────
+
+# ── Stage 2: production runtime ──────────────────────────────────────────────
 FROM python:3.11-slim AS production
 
-# Install system dependencies (nmap, arp-scan)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    nmap \
-    arp-scan \
+LABEL org.opencontainers.image.title="NetworkCrawler" \
+      org.opencontainers.image.description="LAN security posture scanner for home lab operators" \
+      org.opencontainers.image.source="https://github.com/reloadfast/NetworkCrawler"
+
+# Install system-level scanning tools
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        nmap \
+        arp-scan \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN groupadd -r crawler && useradd -r -g crawler -u 1000 crawler
+# Create a dedicated non-root user
+RUN groupadd --gid 1000 crawler \
+    && useradd --uid 1000 --gid crawler --no-create-home --shell /usr/sbin/nologin crawler
 
 WORKDIR /app
 
-# Install Python dependencies
+# Install Python dependencies before copying source (layer-cache friendly)
 COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy backend source
+# Copy application source
 COPY backend/ ./backend/
 
-# Copy built frontend static assets
-COPY --from=frontend-build /build/frontend/dist ./frontend/dist
+# Copy compiled frontend assets — served as static files by FastAPI
+COPY --from=frontend-build /build/dist ./frontend/dist
 
-# Set ownership
-RUN chown -R crawler:crawler /app
+# Persist the SQLite database in a dedicated data directory
+RUN mkdir -p /app/data && chown -R crawler:crawler /app
 
+# Drop to non-root
 USER crawler
 
+# FastAPI listens on 8000; the host-network container is accessible on <host-ip>:8000
 EXPOSE 8000
 
-# Note: nmap/arp-scan need NET_RAW capability — add via docker-compose or --cap-add=NET_RAW
-CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Healthcheck — lightweight; used by Docker and Compose
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+
+CMD ["uvicorn", "backend.app.main:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8000", \
+     "--proxy-headers", \
+     "--forwarded-allow-ips", "*"]
