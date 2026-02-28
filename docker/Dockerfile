@@ -56,6 +56,10 @@ WORKDIR /app
 
 # backend/ is the Python root — app.main, app.db, etc. are top-level packages
 ENV PYTHONPATH=/app/backend
+# Default database path — stored in the mounted data volume so it survives rebuilds.
+# Override with DATABASE_URL env var if needed (docker-compose and Unraid template
+# both mount /app/data as a persistent volume).
+ENV DATABASE_URL=sqlite:////app/data/networkcrawler.db
 
 # Install Python dependencies before copying source (layer-cache friendly)
 COPY backend/requirements.txt ./
@@ -69,6 +73,10 @@ COPY --from=frontend-build /build/dist ./frontend/dist
 
 # Persist the SQLite database in a dedicated data directory
 RUN mkdir -p /app/data && chown -R crawler:crawler /app
+
+# Declare the data directory as a volume so Docker persists it even without
+# an explicit -v flag.  docker-compose and Unraid override with named/host mounts.
+VOLUME /app/data
 
 # Drop to non-root
 USER crawler
