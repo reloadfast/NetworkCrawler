@@ -1,2 +1,3 @@
-/* Hooks placeholder — implemented in Phase 2/4 */
-export {};
+/* Hook exports */
+export { useTheme } from './useTheme'
+export type { Theme } from './useTheme'
