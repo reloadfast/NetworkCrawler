@@ -51,6 +51,24 @@ export interface Risk {
   detected_at: string | null
 }
 
+export type Effort = 'low' | 'medium' | 'high'
+export type Impact = 'low' | 'medium' | 'high' | 'critical'
+
+export interface Recommendation {
+  id: number
+  device_id: number
+  risk_id: number
+  check_id: string
+  severity: Severity
+  title: string
+  description: string
+  steps: string[]
+  effort: Effort
+  impact: Impact
+  created_at: string | null
+  updated_at: string | null
+}
+
 export interface RiskSummary {
   critical: number
   high: number

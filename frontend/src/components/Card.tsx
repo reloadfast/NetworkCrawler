@@ -13,6 +13,8 @@ export interface CardProps {
   padding?: 'none' | 'sm' | 'md' | 'lg'
   /** Optional click handler */
   onClick?: React.MouseEventHandler<HTMLDivElement>
+  /** Optional ARIA role */
+  role?: React.AriaRole
 }
 
 const paddingMap: Record<NonNullable<CardProps['padding']>, string> = {
@@ -22,7 +24,7 @@ const paddingMap: Record<NonNullable<CardProps['padding']>, string> = {
   lg: 'p-7',
 }
 
-export function Card({ children, className = '', padding = 'md', onClick }: CardProps) {
+export function Card({ children, className = '', padding = 'md', onClick, role }: CardProps) {
   return (
     <div
       className={[
@@ -35,6 +37,7 @@ export function Card({ children, className = '', padding = 'md', onClick }: Card
         .filter(Boolean)
         .join(' ')}
       onClick={onClick}
+      role={role}
     >
       {children}
     </div>
