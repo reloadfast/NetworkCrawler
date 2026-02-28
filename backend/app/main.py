@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import logging
 import os
+import tomllib
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,6 +18,19 @@ from app.db import init_db
 logger = logging.getLogger(__name__)
 
 SCAN_INTERVAL_SECONDS = int(os.getenv("SCAN_INTERVAL_SECONDS", "3600"))
+
+
+# Read version from pyproject.toml at import time; fall back to "dev" on any error.
+def _read_version() -> str:
+    try:
+        pyproject = Path(__file__).parent.parent / "pyproject.toml"
+        with pyproject.open("rb") as f:
+            return tomllib.load(f)["project"]["version"]
+    except Exception:  # noqa: BLE001 — intentional broad catch for version fallback
+        return "dev"
+
+
+_VERSION = _read_version()
 
 
 @asynccontextmanager
@@ -73,4 +88,4 @@ app.include_router(router)
 
 @app.get("/health")
 async def health() -> dict:
-    return {"status": "ok"}
+    return {"status": "ok", "version": _VERSION}

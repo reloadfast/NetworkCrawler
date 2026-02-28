@@ -22,3 +22,6 @@ export { useScanStatus } from './useScanStatus'
 export type { UseScanStatusResult } from './useScanStatus'
 
 export { useToast } from './useToast'
+
+export { useAppVersion } from './useAppVersion'
+export type { UseAppVersionResult } from './useAppVersion'

@@ -3,18 +3,31 @@
  * Renders theme toggle and nav links; wraps all route pages.
  * Includes a skip-to-main-content link for keyboard users.
  */
+import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useTheme } from '../hooks'
+import { useAppVersion } from '../hooks/useAppVersion'
 
 const navLinks = [
   { to: '/', label: 'Dashboard', end: true },
   { to: '/devices', label: 'Devices', end: false },
   { to: '/risks', label: 'Risks', end: false },
   { to: '/recommendations', label: 'Recommendations', end: false },
+  { to: '/settings', label: 'Settings', end: false },
 ]
 
 export function Layout() {
   const { theme, toggleTheme } = useTheme()
+  const { version } = useAppVersion()
+  const [copied, setCopied] = useState(false)
+
+  const handleCopyVersion = () => {
+    if (!version) return
+    navigator.clipboard.writeText(`v${version}`).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
 
   return (
     <div className="min-h-screen bg-[var(--color-background)] text-[var(--color-text-primary)]">
@@ -54,13 +67,25 @@ export function Layout() {
               ))}
             </nav>
           </div>
-          <button
-            onClick={toggleTheme}
-            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-            className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text-secondary)] transition-colors duration-150 hover:text-[var(--color-text-primary)]"
-          >
-            {theme === 'dark' ? '☀ Light' : '☾ Dark'}
-          </button>
+          <div className="flex items-center gap-2">
+            {version && (
+              <button
+                onClick={handleCopyVersion}
+                aria-label={copied ? 'Copied!' : `Copy version v${version} to clipboard`}
+                title={copied ? 'Copied!' : `v${version} — click to copy`}
+                className="font-mono text-xs text-[var(--color-text-secondary)] transition-colors duration-150 hover:text-[var(--color-text-primary)] select-none"
+              >
+                {copied ? '✓' : `v${version}`}
+              </button>
+            )}
+            <button
+              onClick={toggleTheme}
+              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+              className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text-secondary)] transition-colors duration-150 hover:text-[var(--color-text-primary)]"
+            >
+              {theme === 'dark' ? '☀ Light' : '☾ Dark'}
+            </button>
+          </div>
         </div>
       </header>
       <main id="main-content" className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
