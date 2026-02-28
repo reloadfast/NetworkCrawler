@@ -48,6 +48,23 @@ def run_scan_and_persist(triggered_by: str = "scheduler") -> int:
 
         run_all_checks(db)
 
+        # Snapshot risk counts for trend tracking
+        from sqlalchemy import func as sqlfunc
+        from sqlalchemy import select as sa_select
+
+        from app.models.risk import (
+            Risk,  # noqa: PLC0415 — deferred to avoid circular import at module level
+        )
+
+        risk_counts: dict[str, int] = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+        for sev in risk_counts:
+            risk_counts[sev] = (
+                db.execute(
+                    sa_select(sqlfunc.count()).select_from(Risk).where(Risk.severity == sev)
+                ).scalar_one()
+                or 0
+            )
+
         # Generate/update hardening recommendations for all devices
         from app.recommendations import (
             generate_all_recommendations,  # noqa: PLC0415 — deferred to avoid circular import at module level
@@ -59,6 +76,10 @@ def run_scan_and_persist(triggered_by: str = "scheduler") -> int:
         scan.finished_at = datetime.now(tz=UTC)
         scan.duration_seconds = round(time.monotonic() - t0, 2)
         scan.devices_found = devices_found
+        scan.risks_critical = risk_counts["critical"]
+        scan.risks_high = risk_counts["high"]
+        scan.risks_medium = risk_counts["medium"]
+        scan.risks_low = risk_counts["low"]
         db.commit()
         logger.info("Scan %d completed: %d devices", scan_id, devices_found)
 

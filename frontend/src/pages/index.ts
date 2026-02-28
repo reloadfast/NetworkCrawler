@@ -1,3 +1,4 @@
+export { HistoryPage } from "./HistoryPage";
 /* Page exports */
 export { DashboardPage } from "./DashboardPage";
 export { DevicesPage } from "./DevicesPage";

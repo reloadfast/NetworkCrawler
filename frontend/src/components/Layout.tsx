@@ -12,6 +12,7 @@ const navLinks = [
   { to: "/", label: "Dashboard", end: true },
   { to: "/devices", label: "Devices", end: false },
   { to: "/risks", label: "Risks", end: false },
+  { to: "/history", label: "History", end: false },
   { to: "/recommendations", label: "Recommendations", end: false },
   { to: "/settings", label: "Settings", end: false },
 ];

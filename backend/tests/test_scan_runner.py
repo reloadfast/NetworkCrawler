@@ -26,6 +26,8 @@ def in_memory_session_factory():
     and therefore sees the same in-memory database.
     """
     import app.models.device  # noqa: F401 — side-effect import registers ORM tables
+    import app.models.recommendation  # noqa: F401 — side-effect import registers ORM tables
+    import app.models.risk  # noqa: F401 — side-effect import registers ORM tables
     import app.models.scan  # noqa: F401 — side-effect import registers ORM tables
     from app.db import Base
 
@@ -206,3 +208,28 @@ def test_run_scan_returns_scan_id(in_memory_session_factory, monkeypatch):
         result = run_scan_and_persist("scheduler")
 
     assert isinstance(result, int)
+
+
+@pytest.mark.integration
+def test_run_scan_populates_risk_counts(in_memory_session_factory, monkeypatch):
+    """Completed scan record includes per-severity risk counts (all zero when no risks)."""
+    from app.models.scan import Scan
+    from app.scan_runner import run_scan_and_persist
+
+    monkeypatch.setattr("app.scan_runner.SessionLocal", in_memory_session_factory)
+
+    with patch("app.scan_runner.orchestrate_scan", return_value=_make_scan_result(n_hosts=1)):
+        scan_id = run_scan_and_persist("manual")
+
+    db = in_memory_session_factory()
+    scan = db.get(Scan, scan_id)
+    assert scan.risks_critical is not None  # type: ignore[union-attr]
+    assert scan.risks_high is not None  # type: ignore[union-attr]
+    assert scan.risks_medium is not None  # type: ignore[union-attr]
+    assert scan.risks_low is not None  # type: ignore[union-attr]
+    # All counts must be non-negative integers
+    assert scan.risks_critical >= 0  # type: ignore[union-attr]
+    assert scan.risks_high >= 0  # type: ignore[union-attr]
+    assert scan.risks_medium >= 0  # type: ignore[union-attr]
+    assert scan.risks_low >= 0  # type: ignore[union-attr]
+    db.close()
