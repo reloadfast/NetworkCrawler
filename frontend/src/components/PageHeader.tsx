@@ -3,6 +3,8 @@
  * Used at the top of every page to provide a unified typographic hierarchy.
  */
 
+import React from "react";
+
 interface PageHeaderProps {
   title: string;
   subtitle?: string;
