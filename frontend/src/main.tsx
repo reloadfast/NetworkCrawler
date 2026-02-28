@@ -10,6 +10,7 @@ import {
   RisksPage,
   RecommendationsPage,
   RecommendationDetailPage,
+  SettingsPage,
 } from "./pages";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -26,6 +27,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             path="recommendations/:id"
             element={<RecommendationDetailPage />}
           />
+          <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
