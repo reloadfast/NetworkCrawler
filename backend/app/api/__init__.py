@@ -165,12 +165,25 @@ class RiskSummary(BaseModel):
 
 
 @router.get("/risks", response_model=list[RiskOut])
-def list_risks(db: Annotated[Session, Depends(get_db)]) -> list[RiskOut]:
-    """Return all risk findings, ordered by severity then detected_at."""
+def list_risks(
+    db: Annotated[Session, Depends(get_db)],
+    severity: str | None = None,
+    device_id: int | None = None,
+) -> list[RiskOut]:
+    """Return risk findings, ordered by severity then detected_at.
+
+    Optional query parameters:
+    - ``severity``: filter to a single severity level (critical/high/medium/low)
+    - ``device_id``: filter to risks belonging to a specific device
+    """
     from app.models.risk import Risk
 
     severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
     stmt = select(Risk)
+    if severity is not None:
+        stmt = stmt.where(Risk.severity == severity)
+    if device_id is not None:
+        stmt = stmt.where(Risk.device_id == device_id)
     risks = db.execute(stmt).scalars().all()
     risks_sorted = sorted(
         risks, key=lambda r: (severity_order.get(r.severity, 99), r.detected_at or "")

@@ -344,3 +344,123 @@ def test_device_risks_endpoint(client, seeded_db, seeded_risk):
 def test_device_risks_404_for_unknown_device(client):
     response = client.get("/api/devices/999999/risks")
     assert response.status_code == 404
+
+
+@pytest.mark.integration
+def test_list_risks_filter_by_severity(client, seeded_db, db_engine):
+    """Risks can be filtered to a specific severity level."""
+    from app.models.risk import Risk
+
+    Session = sessionmaker(bind=db_engine)  # noqa: N806 — sessionmaker convention; uppercase matches class naming
+    db = Session()
+    high_risk = Risk(
+        device_id=seeded_db["device_id"],
+        severity="high",
+        check_id="ftp_open",
+        title="FTP port open",
+        description="FTP is open",
+        detected_at=__import__("datetime").datetime.now(tz=__import__("datetime").timezone.utc),
+    )
+    db.add(high_risk)
+    db.commit()
+    high_id = high_risk.id
+    db.close()
+
+    try:
+        response = client.get("/api/risks?severity=high")
+        assert response.status_code == 200
+        data = response.json()
+        assert all(r["severity"] == "high" for r in data)
+        assert any(r["id"] == high_id for r in data)
+
+        response_critical = client.get("/api/risks?severity=critical")
+        assert response_critical.status_code == 200
+        assert all(r["severity"] == "critical" for r in response_critical.json())
+    finally:
+        Session2 = sessionmaker(bind=db_engine)  # noqa: N806 — sessionmaker convention; uppercase matches class naming
+        db2 = Session2()
+        db2.execute(__import__("sqlalchemy").delete(Risk).where(Risk.id == high_id))
+        db2.commit()
+        db2.close()
+
+
+@pytest.mark.integration
+def test_list_risks_filter_by_device_id(client, seeded_db, db_engine):
+    """Risks can be filtered to a specific device."""
+    from app.models.device import Device
+    from app.models.risk import Risk
+
+    Session = sessionmaker(bind=db_engine)  # noqa: N806 — sessionmaker convention; uppercase matches class naming
+    db = Session()
+
+    # Create a second device with its own risk
+    other_device = Device(ip_address="10.0.0.99", mac_address=None, vendor="Other")
+    db.add(other_device)
+    db.flush()
+    other_risk = Risk(
+        device_id=other_device.id,
+        severity="low",
+        check_id="outdated_banner",
+        title="Outdated banner",
+        description="Old version",
+        detected_at=__import__("datetime").datetime.now(tz=__import__("datetime").timezone.utc),
+    )
+    db.add(other_risk)
+    db.commit()
+    other_device_id = other_device.id
+    other_risk_id = other_risk.id
+    db.close()
+
+    try:
+        response = client.get(f"/api/risks?device_id={seeded_db['device_id']}")
+        assert response.status_code == 200
+        data = response.json()
+        assert all(r["device_id"] == seeded_db["device_id"] for r in data)
+
+        response_other = client.get(f"/api/risks?device_id={other_device_id}")
+        assert response_other.status_code == 200
+        other_data = response_other.json()
+        assert any(r["id"] == other_risk_id for r in other_data)
+        assert all(r["device_id"] == other_device_id for r in other_data)
+    finally:
+        Session2 = sessionmaker(bind=db_engine)  # noqa: N806 — sessionmaker convention; uppercase matches class naming
+        db2 = Session2()
+        db2.execute(__import__("sqlalchemy").delete(Risk).where(Risk.id == other_risk_id))
+        db2.execute(__import__("sqlalchemy").delete(Device).where(Device.id == other_device_id))
+        db2.commit()
+        db2.close()
+
+
+@pytest.mark.integration
+def test_list_risks_filter_by_severity_and_device_id(client, seeded_db, db_engine):
+    """Both severity and device_id filters can be combined."""
+    from app.models.risk import Risk
+
+    Session = sessionmaker(bind=db_engine)  # noqa: N806 — sessionmaker convention; uppercase matches class naming
+    db = Session()
+    risk = Risk(
+        device_id=seeded_db["device_id"],
+        severity="medium",
+        check_id="upnp_exposed",
+        title="UPnP exposed",
+        description="UPnP open",
+        detected_at=__import__("datetime").datetime.now(tz=__import__("datetime").timezone.utc),
+    )
+    db.add(risk)
+    db.commit()
+    risk_id = risk.id
+    db.close()
+
+    try:
+        response = client.get(f"/api/risks?severity=medium&device_id={seeded_db['device_id']}")
+        assert response.status_code == 200
+        data = response.json()
+        assert all(r["severity"] == "medium" for r in data)
+        assert all(r["device_id"] == seeded_db["device_id"] for r in data)
+        assert any(r["id"] == risk_id for r in data)
+    finally:
+        Session2 = sessionmaker(bind=db_engine)  # noqa: N806 — sessionmaker convention; uppercase matches class naming
+        db2 = Session2()
+        db2.execute(__import__("sqlalchemy").delete(Risk).where(Risk.id == risk_id))
+        db2.commit()
+        db2.close()
