@@ -52,7 +52,16 @@ def run_arp_scan(
         timeout=60,
     )
 
-    if result.returncode not in (0, 1):  # arp-scan returns 1 when no hosts found
+    if result.stderr.strip():
+        logger.warning("arp-scan stderr: %s", result.stderr.strip())
+    logger.debug("arp-scan stdout: %s", result.stdout.strip() or "(empty)")
+
+    # Exit code 1 with stderr output is a real error (e.g. permission denied,
+    # unknown interface). Exit code 1 with no stderr means no hosts found.
+    if result.returncode == 1 and result.stderr.strip():
+        raise RuntimeError(f"arp-scan failed (exit 1): {result.stderr.strip()}")
+
+    if result.returncode not in (0, 1):
         raise RuntimeError(f"arp-scan failed (exit {result.returncode}): {result.stderr.strip()}")
 
     return parse_arp_output(result.stdout)
