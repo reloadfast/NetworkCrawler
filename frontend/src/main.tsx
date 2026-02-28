@@ -7,6 +7,7 @@ import {
   DashboardPage,
   DevicesPage,
   DeviceDetailPage,
+  HistoryPage,
   RisksPage,
   RecommendationsPage,
   RecommendationDetailPage,
@@ -22,6 +23,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="devices" element={<DevicesPage />} />
           <Route path="devices/:id" element={<DeviceDetailPage />} />
           <Route path="risks" element={<RisksPage />} />
+          <Route path="history" element={<HistoryPage />} />
           <Route path="recommendations" element={<RecommendationsPage />} />
           <Route
             path="recommendations/:id"

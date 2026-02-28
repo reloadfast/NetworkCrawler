@@ -49,6 +49,10 @@ class ScanOut(BaseModel):
     duration_seconds: float | None
     devices_found: int | None
     error_message: str | None
+    risks_critical: int | None
+    risks_high: int | None
+    risks_medium: int | None
+    risks_low: int | None
 
     model_config = {"from_attributes": True}
 
@@ -138,6 +142,10 @@ def _scan_to_out(s) -> ScanOut:  # noqa: ANN001 — SQLAlchemy instance
         duration_seconds=s.duration_seconds,
         devices_found=s.devices_found,
         error_message=s.error_message,
+        risks_critical=s.risks_critical,
+        risks_high=s.risks_high,
+        risks_medium=s.risks_medium,
+        risks_low=s.risks_low,
     )
 
 

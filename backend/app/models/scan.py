@@ -20,3 +20,8 @@ class Scan(Base):
     duration_seconds = Column(Float, nullable=True)
     devices_found = Column(Integer, nullable=True)
     error_message = Column(Text, nullable=True)
+    # Risk counts snapshotted at scan completion
+    risks_critical = Column(Integer, nullable=True)
+    risks_high = Column(Integer, nullable=True)
+    risks_medium = Column(Integer, nullable=True)
+    risks_low = Column(Integer, nullable=True)

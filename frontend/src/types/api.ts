@@ -32,6 +32,10 @@ export interface Scan {
   duration_seconds: number | null;
   devices_found: number | null;
   error_message: string | null;
+  risks_critical: number | null;
+  risks_high: number | null;
+  risks_medium: number | null;
+  risks_low: number | null;
 }
 
 export interface TriggerResponse {

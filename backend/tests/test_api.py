@@ -199,6 +199,10 @@ def test_scan_schema_fields(client, seeded_db):
     assert "finished_at" in scan
     assert "duration_seconds" in scan
     assert "devices_found" in scan
+    assert "risks_critical" in scan
+    assert "risks_high" in scan
+    assert "risks_medium" in scan
+    assert "risks_low" in scan
 
 
 # ── POST /api/scans/trigger ───────────────────────────────────────────────────
