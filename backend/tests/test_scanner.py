@@ -115,11 +115,23 @@ class TestRunArpScan:
 
     @pytest.mark.unit
     def test_returns_empty_list_when_no_hosts_found(self):
-        """arp-scan exits 1 when no hosts are found — must not raise."""
+        """arp-scan exits 1 with empty stderr when no hosts found — must not raise."""
         mock_result = MagicMock(returncode=1, stdout="", stderr="")
         with patch("app.scanner.arp_scan.subprocess.run", return_value=mock_result):
             hosts = run_arp_scan(interface="eth0", subnet="192.168.1.0/24")
         assert hosts == []
+
+    @pytest.mark.unit
+    def test_raises_on_exit1_with_stderr(self):
+        """Exit code 1 with stderr content is a real error (e.g. permission denied) — must raise."""
+        mock_result = MagicMock(
+            returncode=1,
+            stdout="",
+            stderr="ERROR: socket(PF_PACKET, SOCK_RAW, 8): Operation not permitted",
+        )
+        with patch("app.scanner.arp_scan.subprocess.run", return_value=mock_result):
+            with pytest.raises(RuntimeError, match="arp-scan failed"):
+                run_arp_scan()
 
     @pytest.mark.unit
     def test_raises_on_nonzero_exit(self):
