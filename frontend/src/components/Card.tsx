@@ -11,6 +11,8 @@ export interface CardProps {
   className?: string
   /** Padding preset.  Defaults to 'md'. */
   padding?: 'none' | 'sm' | 'md' | 'lg'
+  /** Optional click handler */
+  onClick?: React.MouseEventHandler<HTMLDivElement>
 }
 
 const paddingMap: Record<NonNullable<CardProps['padding']>, string> = {
@@ -20,7 +22,7 @@ const paddingMap: Record<NonNullable<CardProps['padding']>, string> = {
   lg: 'p-7',
 }
 
-export function Card({ children, className = '', padding = 'md' }: CardProps) {
+export function Card({ children, className = '', padding = 'md', onClick }: CardProps) {
   return (
     <div
       className={[
@@ -32,6 +34,7 @@ export function Card({ children, className = '', padding = 'md' }: CardProps) {
       ]
         .filter(Boolean)
         .join(' ')}
+      onClick={onClick}
     >
       {children}
     </div>

@@ -10,3 +10,5 @@ export type { ProgressBarProps, ProgressBarVariant } from './ProgressBar'
 
 export { Chart } from './Chart'
 export type { ChartProps, ChartVariant } from './Chart'
+
+export { Layout } from './Layout'
