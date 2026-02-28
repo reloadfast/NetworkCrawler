@@ -79,7 +79,9 @@ export function DeviceDetailPage() {
           Devices
         </Link>
         <span className="opacity-40">/</span>
-        <span className="font-mono text-[var(--color-text-primary)]">{device.ip_address}</span>
+        <span className="font-mono text-[var(--color-text-primary)]">
+          {device.ip_address}
+        </span>
       </div>
       <PageHeader
         title={device.ip_address}

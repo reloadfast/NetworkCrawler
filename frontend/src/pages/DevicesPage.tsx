@@ -105,7 +105,11 @@ export function DevicesPage() {
     <div>
       <PageHeader
         title="Devices"
-        subtitle={devices.length > 0 ? `${devices.length} device${devices.length !== 1 ? "s" : ""} discovered` : undefined}
+        subtitle={
+          devices.length > 0
+            ? `${devices.length} device${devices.length !== 1 ? "s" : ""} discovered`
+            : undefined
+        }
         action={
           <input
             type="search"

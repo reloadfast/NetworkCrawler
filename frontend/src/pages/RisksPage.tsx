@@ -117,7 +117,11 @@ export function RisksPage() {
     <div>
       <PageHeader
         title="Risks"
-        subtitle={totalRisks > 0 ? `${totalRisks} total risk${totalRisks !== 1 ? "s" : ""} detected` : undefined}
+        subtitle={
+          totalRisks > 0
+            ? `${totalRisks} total risk${totalRisks !== 1 ? "s" : ""} detected`
+            : undefined
+        }
       />
 
       {/* Severity summary cards */}
@@ -189,7 +193,10 @@ export function RisksPage() {
 
         {(sevFilter || devFilter) && (
           <button
-            onClick={() => { setSevFilter(""); setDevFilter(""); }}
+            onClick={() => {
+              setSevFilter("");
+              setDevFilter("");
+            }}
             className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
           >
             Clear filters ✕

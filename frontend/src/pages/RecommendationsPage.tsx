@@ -88,7 +88,11 @@ export function RecommendationsPage() {
     <div>
       <PageHeader
         title="Recommendations"
-        subtitle={sorted.length > 0 ? `${sorted.length} hardening recommendation${sorted.length !== 1 ? "s" : ""}` : undefined}
+        subtitle={
+          sorted.length > 0
+            ? `${sorted.length} hardening recommendation${sorted.length !== 1 ? "s" : ""}`
+            : undefined
+        }
         action={
           <div className="flex items-center gap-2">
             <label
