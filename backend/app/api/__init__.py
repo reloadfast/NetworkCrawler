@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
@@ -174,10 +174,13 @@ class RiskSummary(BaseModel):
     total: int
 
 
+_SeverityParam = Literal["critical", "high", "medium", "low"]
+
+
 @router.get("/risks", response_model=list[RiskOut])
 def list_risks(
     db: Annotated[Session, Depends(get_db)],
-    severity: str | None = None,
+    severity: _SeverityParam | None = None,
     device_id: int | None = None,
 ) -> list[RiskOut]:
     """Return risk findings, ordered by severity then detected_at.
@@ -263,6 +266,9 @@ def _risk_to_out(r) -> RiskOut:  # noqa: ANN001 — SQLAlchemy instance
 # ── /api/recommendations ──────────────────────────────────────────────────────
 
 import json as _json  # noqa: E402 — after router definitions to keep imports grouped above
+import logging as _logging  # noqa: E402 — after router definitions to keep imports grouped above
+
+_api_logger = _logging.getLogger(__name__)
 
 
 class RecommendationOut(BaseModel):
@@ -328,6 +334,18 @@ def device_recommendations(
     return [_rec_to_out(r) for r in recs]
 
 
+def _safe_load_steps(raw: str | None) -> list[str]:
+    """Deserialise recommendation steps from JSON string; returns [] on failure."""
+    if not raw:
+        return []
+    try:
+        result = _json.loads(raw)
+        return result if isinstance(result, list) else []
+    except _json.JSONDecodeError:
+        _api_logger.warning("Malformed steps JSON in recommendation: %r", raw[:120])
+        return []
+
+
 def _rec_to_out(r) -> RecommendationOut:  # noqa: ANN001 — SQLAlchemy instance
     return RecommendationOut(
         id=r.id,
@@ -337,7 +355,7 @@ def _rec_to_out(r) -> RecommendationOut:  # noqa: ANN001 — SQLAlchemy instance
         severity=r.severity,
         title=r.title,
         description=r.description,
-        steps=_json.loads(r.steps),
+        steps=_safe_load_steps(r.steps),
         effort=r.effort,
         impact=r.impact,
         created_at=r.created_at.isoformat() if r.created_at else None,
