@@ -233,3 +233,35 @@ def test_run_scan_populates_risk_counts(in_memory_session_factory, monkeypatch):
     assert scan.risks_medium >= 0  # type: ignore[union-attr]
     assert scan.risks_low >= 0  # type: ignore[union-attr]
     db.close()
+
+
+@pytest.mark.unit
+def test_partial_scan_persists_arp_devices_when_nmap_fails(in_memory_session_factory, monkeypatch):
+    """When nmap fails, ARP-discovered devices must still be persisted and
+    the scan marked 'completed' with a warning_message."""
+    from app.models.device import Device
+    from app.models.scan import Scan
+    from app.scan_runner import run_scan_and_persist
+    from app.scanner import ScanResult
+    from app.scanner.arp_scan import ArpHost
+
+    monkeypatch.setattr("app.scan_runner.SessionLocal", in_memory_session_factory)
+
+    partial_result = ScanResult(
+        hosts=[],
+        arp_only=[ArpHost(ip="192.168.1.50", mac="aa:bb:cc:dd:ee:ff", vendor="Acme")],
+        warnings=["nmap unavailable — showing ARP-only results: nmap failed"],
+    )
+
+    with patch("app.scan_runner.orchestrate_scan", return_value=partial_result):
+        scan_id = run_scan_and_persist("manual")
+
+    db = in_memory_session_factory()
+    scan = db.get(Scan, scan_id)
+    assert scan.status == "completed"  # type: ignore[union-attr]
+    assert scan.warning_message is not None  # type: ignore[union-attr]
+    assert "nmap" in scan.warning_message.lower()  # type: ignore[union-attr]
+
+    devices = db.query(Device).filter(Device.ip_address == "192.168.1.50").all()
+    assert len(devices) == 1
+    db.close()

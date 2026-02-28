@@ -9,64 +9,55 @@ Pure socket calls — no subprocess, no elevated privileges required.
 from __future__ import annotations
 
 import logging
-import signal
 import socket
-from contextlib import contextmanager
+from concurrent.futures import ThreadPoolExecutor
 
 from app.scanner.nmap_scan import NmapHost
 
 logger = logging.getLogger(__name__)
 
-_LOOKUP_TIMEOUT_SECONDS = 1
-
-
-@contextmanager
-def _timeout(seconds: int):
-    """SIGALRM-based timeout context for blocking socket calls."""
-
-    def _handler(signum, frame):  # noqa: ANN001 — signal handler signature is fixed by the stdlib
-        raise TimeoutError
-
-    old = signal.signal(signal.SIGALRM, _handler)
-    signal.alarm(seconds)
-    try:
-        yield
-    finally:
-        signal.alarm(0)
-        signal.signal(signal.SIGALRM, old)
+_LOOKUP_TIMEOUT_SECONDS = 2
+_MAX_WORKERS = 20
 
 
 def _rdns(ip: str) -> str:
     """
     Return the PTR hostname for *ip*, or empty string on any failure.
 
-    Uses a SIGALRM timeout so a single slow DNS server cannot stall
-    the entire scan cycle.
+    Uses socket.setdefaulttimeout so each lookup is individually bounded.
     """
     try:
-        with _timeout(_LOOKUP_TIMEOUT_SECONDS):
-            hostname, _, _ = socket.gethostbyaddr(ip)
-            return hostname
-    except (OSError, TimeoutError):
+        socket.setdefaulttimeout(_LOOKUP_TIMEOUT_SECONDS)
+        hostname, _, _ = socket.gethostbyaddr(ip)
+        return hostname
+    except OSError:
         return ""
+    finally:
+        socket.setdefaulttimeout(None)
 
 
 def resolve_hostnames(hosts: list[NmapHost]) -> None:
     """
     Fill in missing hostnames on *hosts* via reverse DNS (in-place).
 
-    Only queries IPs where nmap returned no hostname.  Each lookup is
-    individually timeout-guarded so a non-responsive resolver doesn't
-    block the scan.
+    Only queries IPs where nmap returned no hostname.  All lookups run
+    concurrently via a thread pool so a slow resolver doesn't serialise
+    the scan cycle.
     """
     missing = [h for h in hosts if not h.hostname]
     if not missing:
         return
 
     logger.debug("Reverse DNS lookup for %d host(s) with no hostname", len(missing))
+
+    futures = {}
+    with ThreadPoolExecutor(max_workers=min(_MAX_WORKERS, len(missing))) as pool:
+        for host in missing:
+            futures[pool.submit(_rdns, host.ip)] = host
+
     resolved = 0
-    for host in missing:
-        name = _rdns(host.ip)
+    for future, host in futures.items():
+        name = future.result()
         if name:
             host.hostname = name
             resolved += 1

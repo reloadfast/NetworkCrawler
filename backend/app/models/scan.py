@@ -20,6 +20,8 @@ class Scan(Base):
     duration_seconds = Column(Float, nullable=True)
     devices_found = Column(Integer, nullable=True)
     error_message = Column(Text, nullable=True)
+    warning_message = Column(Text, nullable=True)
+    # "completed" scans may have a warning_message when nmap failed but ARP succeeded
     # Risk counts snapshotted at scan completion
     risks_critical = Column(Integer, nullable=True)
     risks_high = Column(Integer, nullable=True)

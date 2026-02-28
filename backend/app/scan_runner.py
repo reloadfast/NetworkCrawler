@@ -80,6 +80,8 @@ def run_scan_and_persist(triggered_by: str = "scheduler") -> int:
         scan.risks_high = risk_counts["high"]
         scan.risks_medium = risk_counts["medium"]
         scan.risks_low = risk_counts["low"]
+        if result.warnings:
+            scan.warning_message = "; ".join(result.warnings)
         db.commit()
         logger.info("Scan %d completed: %d devices", scan_id, devices_found)
 
