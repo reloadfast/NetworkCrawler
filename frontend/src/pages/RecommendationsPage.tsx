@@ -2,30 +2,40 @@
  * RecommendationsPage — sortable list of all hardening recommendations.
  * Route: /recommendations
  */
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Card, Badge, SkeletonCard } from '../components'
-import { useRecommendations } from '../hooks'
-import type { Recommendation, Severity } from '../types/api'
+import { memo, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { Card, Badge, SkeletonCard } from "../components";
+import { useRecommendations } from "../hooks";
+import type { Recommendation, Severity } from "../types/api";
 
-type SortKey = 'severity' | 'effort' | 'impact'
+type SortKey = "severity" | "effort" | "impact";
 
-const SEV_ORDER: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3 }
-const EFFORT_ORDER: Record<string, number> = { low: 0, medium: 1, high: 2 }
-const IMPACT_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 }
+const SEV_ORDER: Record<Severity, number> = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+};
+const EFFORT_ORDER: Record<string, number> = { low: 0, medium: 1, high: 2 };
+const IMPACT_ORDER: Record<string, number> = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+};
 
 function chipClass(value: string): string {
   switch (value) {
-    case 'critical':
-      return 'bg-[var(--color-accent-danger)] text-white'
-    case 'high':
-      return 'bg-[var(--color-accent-warning)] text-black'
-    case 'medium':
-      return 'bg-[var(--color-accent-caution)] text-black'
-    case 'low':
-      return 'bg-[var(--color-accent-info)] text-white'
+    case "critical":
+      return "bg-[var(--color-accent-danger)] text-white";
+    case "high":
+      return "bg-[var(--color-accent-warning)] text-black";
+    case "medium":
+      return "bg-[var(--color-accent-caution)] text-black";
+    case "low":
+      return "bg-[var(--color-accent-info)] text-white";
     default:
-      return 'bg-[var(--color-surface)] text-[var(--color-text-secondary)]'
+      return "bg-[var(--color-surface)] text-[var(--color-text-secondary)]";
   }
 }
 
@@ -37,27 +47,31 @@ function Chip({ label, value }: { label: string; value: string }) {
     >
       {label}: {value}
     </span>
-  )
+  );
 }
 
 export function RecommendationsPage() {
-  const { recommendations, loading, error } = useRecommendations()
-  const [sortKey, setSortKey] = useState<SortKey>('severity')
+  const { recommendations, loading, error } = useRecommendations();
+  const [sortKey, setSortKey] = useState<SortKey>("severity");
 
   const sorted = useMemo(() => {
     return [...recommendations].sort((a, b) => {
       switch (sortKey) {
-        case 'severity':
-          return (SEV_ORDER[a.severity] ?? 99) - (SEV_ORDER[b.severity] ?? 99)
-        case 'effort':
-          return (EFFORT_ORDER[a.effort] ?? 99) - (EFFORT_ORDER[b.effort] ?? 99)
-        case 'impact':
-          return (IMPACT_ORDER[a.impact] ?? 99) - (IMPACT_ORDER[b.impact] ?? 99)
+        case "severity":
+          return (SEV_ORDER[a.severity] ?? 99) - (SEV_ORDER[b.severity] ?? 99);
+        case "effort":
+          return (
+            (EFFORT_ORDER[a.effort] ?? 99) - (EFFORT_ORDER[b.effort] ?? 99)
+          );
+        case "impact":
+          return (
+            (IMPACT_ORDER[a.impact] ?? 99) - (IMPACT_ORDER[b.impact] ?? 99)
+          );
         default:
-          return 0
+          return 0;
       }
-    })
-  }, [recommendations, sortKey])
+    });
+  }, [recommendations, sortKey]);
 
   if (loading)
     return (
@@ -66,8 +80,9 @@ export function RecommendationsPage() {
           <SkeletonCard key={i} height="24" />
         ))}
       </div>
-    )
-  if (error) return <p className="text-[var(--color-accent-danger)]">Error: {error}</p>
+    );
+  if (error)
+    return <p className="text-[var(--color-accent-danger)]">Error: {error}</p>;
 
   return (
     <div>
@@ -101,17 +116,25 @@ export function RecommendationsPage() {
           </p>
         </Card>
       ) : (
-        <div className="flex flex-col gap-3" role="list" aria-label="Recommendations list">
+        <div
+          className="flex flex-col gap-3"
+          role="list"
+          aria-label="Recommendations list"
+        >
           {sorted.map((rec) => (
             <RecommendationRow key={rec.id} rec={rec} />
           ))}
         </div>
       )}
     </div>
-  )
+  );
 }
 
-function RecommendationRow({ rec }: { rec: Recommendation }) {
+const RecommendationRow = memo(function RecommendationRow({
+  rec,
+}: {
+  rec: Recommendation;
+}) {
   return (
     <Card role="listitem">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -144,5 +167,5 @@ function RecommendationRow({ rec }: { rec: Recommendation }) {
         </div>
       </div>
     </Card>
-  )
-}
+  );
+});

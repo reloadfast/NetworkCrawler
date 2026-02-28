@@ -2,13 +2,13 @@
  * RisksPage — filterable risk list with severity summary chart.
  * Route: /risks
  */
-import React, { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Card, Badge, ProgressBar, SkeletonCard } from '../components'
-import { useRisks, useRiskSummary, useDevices } from '../hooks'
-import type { Risk, Severity } from '../types/api'
+import React, { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { Card, Badge, ProgressBar, SkeletonCard } from "../components";
+import { useRisks, useRiskSummary, useDevices } from "../hooks";
+import type { Risk, Severity } from "../types/api";
 
-const SEV_LEVELS: Severity[] = ['critical', 'high', 'medium', 'low']
+const SEV_LEVELS: Severity[] = ["critical", "high", "medium", "low"];
 
 // Modal for full risk detail
 function RiskModal({ risk, onClose }: { risk: Risk; onClose: () => void }) {
@@ -38,7 +38,9 @@ function RiskModal({ risk, onClose }: { risk: Risk; onClose: () => void }) {
             ✕
           </button>
         </div>
-        <p className="mb-4 text-sm text-[var(--color-text-secondary)]">{risk.description}</p>
+        <p className="mb-4 text-sm text-[var(--color-text-secondary)]">
+          {risk.description}
+        </p>
         <dl className="grid gap-2 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
@@ -50,7 +52,11 @@ function RiskModal({ risk, onClose }: { risk: Risk; onClose: () => void }) {
             <dt className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
               Detected
             </dt>
-            <dd>{risk.detected_at ? new Date(risk.detected_at).toLocaleString() : '—'}</dd>
+            <dd>
+              {risk.detected_at
+                ? new Date(risk.detected_at).toLocaleString()
+                : "—"}
+            </dd>
           </div>
           <div>
             <dt className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
@@ -69,38 +75,41 @@ function RiskModal({ risk, onClose }: { risk: Risk; onClose: () => void }) {
         </dl>
       </Card>
     </div>
-  )
+  );
 }
 
 export function RisksPage() {
-  const [sevFilter, setSevFilter] = useState<Severity | ''>('')
-  const [devFilter, setDevFilter] = useState<number | ''>('')
-  const [selectedRisk, setSelectedRisk] = useState<Risk | null>(null)
+  const [sevFilter, setSevFilter] = useState<Severity | "">("");
+  const [devFilter, setDevFilter] = useState<number | "">("");
+  const [selectedRisk, setSelectedRisk] = useState<Risk | null>(null);
 
   const { risks, loading, error } = useRisks({
     severity: sevFilter || undefined,
-    deviceId: devFilter !== '' ? devFilter : undefined,
-  })
-  const { summary } = useRiskSummary()
-  const { devices } = useDevices()
+    deviceId: devFilter !== "" ? devFilter : undefined,
+  });
+  const { summary } = useRiskSummary();
+  const { devices } = useDevices();
 
-  const totalRisks = summary?.total ?? 0
+  const totalRisks = summary?.total ?? 0;
 
   const summaryBars = useMemo(
     () =>
       SEV_LEVELS.map((sev) => ({
         sev,
         count: summary?.[sev] ?? 0,
-        pct: totalRisks > 0 ? Math.round(((summary?.[sev] ?? 0) / totalRisks) * 100) : 0,
+        pct:
+          totalRisks > 0
+            ? Math.round(((summary?.[sev] ?? 0) / totalRisks) * 100)
+            : 0,
         variant:
-          sev === 'critical' || sev === 'high'
-            ? ('danger' as const)
-            : sev === 'medium'
-              ? ('warning' as const)
-              : ('positive' as const),
+          sev === "critical" || sev === "high"
+            ? ("danger" as const)
+            : sev === "medium"
+              ? ("warning" as const)
+              : ("positive" as const),
       })),
     [summary, totalRisks],
-  )
+  );
 
   return (
     <div>
@@ -134,7 +143,7 @@ export function RisksPage() {
       <div className="mb-4 flex flex-wrap gap-3">
         <select
           value={sevFilter}
-          onChange={(e) => setSevFilter(e.target.value as Severity | '')}
+          onChange={(e) => setSevFilter(e.target.value as Severity | "")}
           aria-label="Filter by severity"
           className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent-positive)]"
         >
@@ -148,14 +157,17 @@ export function RisksPage() {
 
         <select
           value={devFilter}
-          onChange={(e) => setDevFilter(e.target.value ? Number(e.target.value) : '')}
+          onChange={(e) =>
+            setDevFilter(e.target.value ? Number(e.target.value) : "")
+          }
           aria-label="Filter by device"
           className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent-positive)]"
         >
           <option value="">All devices</option>
           {devices.map((d) => (
             <option key={d.id} value={d.id}>
-              {d.ip_address}{d.hostname ? ` (${d.hostname})` : ''}
+              {d.ip_address}
+              {d.hostname ? ` (${d.hostname})` : ""}
             </option>
           ))}
         </select>
@@ -169,14 +181,16 @@ export function RisksPage() {
           ))}
         </div>
       )}
-      {error && <p className="text-[var(--color-accent-danger)]">Error: {error}</p>}
+      {error && (
+        <p className="text-[var(--color-accent-danger)]">Error: {error}</p>
+      )}
 
       {!loading && !error && risks.length === 0 && (
         <Card>
           <p className="py-8 text-center text-[var(--color-text-secondary)]">
             {sevFilter || devFilter
-              ? 'No risks match the selected filters.'
-              : 'No risks detected yet. Run a scan from the Dashboard.'}
+              ? "No risks match the selected filters."
+              : "No risks detected yet. Run a scan from the Dashboard."}
           </p>
         </Card>
       )}
@@ -185,7 +199,7 @@ export function RisksPage() {
         <Card padding="none">
           <div className="divide-y divide-[var(--color-border)]">
             {risks.map((risk) => {
-              const device = devices.find((d) => d.id === risk.device_id)
+              const device = devices.find((d) => d.id === risk.device_id);
               return (
                 <button
                   key={risk.id}
@@ -194,15 +208,19 @@ export function RisksPage() {
                   aria-label={`View details for ${risk.title}`}
                 >
                   <Badge variant={risk.severity}>{risk.severity}</Badge>
-                  <span className="flex-1 font-medium text-sm">{risk.title}</span>
+                  <span className="flex-1 font-medium text-sm">
+                    {risk.title}
+                  </span>
                   <span className="text-xs text-[var(--color-text-secondary)]">
                     {device ? device.ip_address : `Device #${risk.device_id}`}
                   </span>
                   <span className="text-xs text-[var(--color-text-secondary)]">
-                    {risk.detected_at ? new Date(risk.detected_at).toLocaleDateString() : '—'}
+                    {risk.detected_at
+                      ? new Date(risk.detected_at).toLocaleDateString()
+                      : "—"}
                   </span>
                 </button>
-              )
+              );
             })}
           </div>
         </Card>
@@ -212,5 +230,5 @@ export function RisksPage() {
         <RiskModal risk={selectedRisk} onClose={() => setSelectedRisk(null)} />
       )}
     </div>
-  )
+  );
 }

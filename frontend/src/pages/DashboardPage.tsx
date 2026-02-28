@@ -2,50 +2,69 @@
  * DashboardPage — summary cards, last scan info, and quick-trigger button.
  * Route: /
  */
-import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Card, Badge, ScanBanner, ToastContainer } from '../components'
-import { useDevices, useScans, useTriggerScan, useRiskSummary } from '../hooks'
-import { useScanStatus } from '../hooks/useScanStatus'
-import { useToast } from '../hooks/useToast'
+import React, { memo, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  Card,
+  Badge,
+  ScanBanner,
+  ToastContainer,
+  SkeletonCard,
+} from "../components";
+import { useDevices, useScans, useTriggerScan, useRiskSummary } from "../hooks";
+import { useScanStatus } from "../hooks/useScanStatus";
+import { useToast } from "../hooks/useToast";
 
-function StatCard({ label, value, sub }: { label: string; value: React.ReactNode; sub?: string }) {
+const StatCard = memo(function StatCard({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: React.ReactNode;
+  sub?: string;
+}) {
   return (
     <Card>
       <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-[var(--color-text-secondary)]">
         {label}
       </p>
-      <p className="text-3xl font-bold text-[var(--color-text-primary)]">{value}</p>
-      {sub && <p className="mt-1 text-xs text-[var(--color-text-secondary)]">{sub}</p>}
+      <p className="text-3xl font-bold text-[var(--color-text-primary)]">
+        {value}
+      </p>
+      {sub && (
+        <p className="mt-1 text-xs text-[var(--color-text-secondary)]">{sub}</p>
+      )}
     </Card>
-  )
-}
+  );
+});
 
 export function DashboardPage() {
-  const { devices, loading: devLoading } = useDevices()
-  const { scans, loading: scanLoading, refetch: refetchScans } = useScans()
-  const { summary, loading: summaryLoading } = useRiskSummary()
-  const { trigger, loading: triggering } = useTriggerScan()
-  const { isRunning, latestScan: runningScan } = useScanStatus()
-  const { toasts, addToast, dismissToast } = useToast()
-  const [scanStartedId, setScanStartedId] = useState<number | null>(null)
+  const { devices, loading: devLoading } = useDevices();
+  const { scans, loading: scanLoading, refetch: refetchScans } = useScans();
+  const { summary, loading: summaryLoading } = useRiskSummary();
+  const { trigger, loading: triggering } = useTriggerScan();
+  const { isRunning, latestScan: runningScan } = useScanStatus();
+  const { toasts, addToast, dismissToast } = useToast();
+  const [scanStartedId, setScanStartedId] = useState<number | null>(null);
 
-  const lastScan = scans[0] ?? null
-  const loading = devLoading || scanLoading || summaryLoading
+  const lastScan = scans[0] ?? null;
+  const loading = devLoading || scanLoading || summaryLoading;
 
   const handleTrigger = async () => {
-    const result = await trigger()
+    const result = await trigger();
     if (result) {
-      setScanStartedId(result.scan_id ?? null)
-      addToast(`Scan #${result.scan_id ?? '?'} started`, 'info')
-      refetchScans()
+      setScanStartedId(result.scan_id ?? null);
+      addToast(`Scan #${result.scan_id ?? "?"} started`, "info");
+      refetchScans();
     } else {
-      addToast('Failed to trigger scan', 'error')
+      addToast("Failed to trigger scan", "error");
     }
-  }
+  };
 
   // Show active scan id in banner: prefer the one just triggered, fall back to running scan
-  const activeScanId = scanStartedId ?? (isRunning ? (runningScan?.id ?? null) : null)
+  const activeScanId =
+    scanStartedId ?? (isRunning ? (runningScan?.id ?? null) : null);
 
   return (
     <div className="page-enter">
@@ -57,7 +76,9 @@ export function DashboardPage() {
         <button
           onClick={handleTrigger}
           disabled={triggering || isRunning}
-          aria-label={triggering || isRunning ? 'Scan in progress' : 'Trigger a new scan'}
+          aria-label={
+            triggering || isRunning ? "Scan in progress" : "Trigger a new scan"
+          }
           className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-sm font-medium text-[var(--color-text-primary)] transition-colors duration-150 hover:border-[var(--color-accent-positive)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {(triggering || isRunning) && (
@@ -66,12 +87,16 @@ export function DashboardPage() {
               aria-hidden="true"
             />
           )}
-          {triggering ? 'Starting…' : isRunning ? 'Scanning…' : 'Trigger Scan'}
+          {triggering ? "Starting…" : isRunning ? "Scanning…" : "Trigger Scan"}
         </button>
       </div>
 
       {loading ? (
-        <p className="text-[var(--color-text-secondary)]">Loading…</p>
+        <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SkeletonCard key={i} height="24" />
+          ))}
+        </div>
       ) : (
         <>
           {/* Summary cards */}
@@ -79,12 +104,20 @@ export function DashboardPage() {
             <StatCard label="Total Devices" value={devices.length} />
             <StatCard
               label="Critical"
-              value={<span className="text-[var(--color-accent-danger)]">{summary?.critical ?? 0}</span>}
+              value={
+                <span className="text-[var(--color-accent-danger)]">
+                  {summary?.critical ?? 0}
+                </span>
+              }
               sub="risks"
             />
             <StatCard
               label="High"
-              value={<span className="text-[var(--color-accent-danger)]">{summary?.high ?? 0}</span>}
+              value={
+                <span className="text-[var(--color-accent-danger)]">
+                  {summary?.high ?? 0}
+                </span>
+              }
               sub="risks"
             />
             <StatCard
@@ -103,11 +136,11 @@ export function DashboardPage() {
               <div className="flex flex-wrap items-center gap-4 text-sm">
                 <Badge
                   variant={
-                    lastScan.status === 'completed'
-                      ? 'low'
-                      : lastScan.status === 'failed'
-                        ? 'critical'
-                        : 'medium'
+                    lastScan.status === "completed"
+                      ? "low"
+                      : lastScan.status === "failed"
+                        ? "critical"
+                        : "medium"
                   }
                 >
                   {lastScan.status}
@@ -115,7 +148,7 @@ export function DashboardPage() {
                 <span className="text-[var(--color-text-secondary)]">
                   {lastScan.started_at
                     ? new Date(lastScan.started_at).toLocaleString()
-                    : 'Unknown time'}
+                    : "Unknown time"}
                 </span>
                 {lastScan.duration_seconds != null && (
                   <span className="text-[var(--color-text-secondary)]">
@@ -124,12 +157,15 @@ export function DashboardPage() {
                 )}
                 {lastScan.devices_found != null && (
                   <span className="text-[var(--color-text-secondary)]">
-                    {lastScan.devices_found} device{lastScan.devices_found !== 1 ? 's' : ''} found
+                    {lastScan.devices_found} device
+                    {lastScan.devices_found !== 1 ? "s" : ""} found
                   </span>
                 )}
               </div>
             ) : (
-              <p className="text-sm text-[var(--color-text-secondary)]">No scans yet.</p>
+              <p className="text-sm text-[var(--color-text-secondary)]">
+                No scans yet.
+              </p>
             )}
           </Card>
 
@@ -154,5 +190,5 @@ export function DashboardPage() {
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
-  )
+  );
 }

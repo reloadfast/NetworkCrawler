@@ -3,37 +3,41 @@
  * Uses smooth rounded ends and a coloured fill driven by the theme tokens.
  */
 
-export type ProgressBarVariant = 'positive' | 'warning' | 'danger' | 'neutral'
+export type ProgressBarVariant = "positive" | "warning" | "danger" | "neutral";
 
 export interface ProgressBarProps {
   /** Value between 0 and 100 */
-  value: number
-  variant?: ProgressBarVariant
+  value: number;
+  variant?: ProgressBarVariant;
   /** Show the numeric percentage label beside the bar */
-  showLabel?: boolean
+  showLabel?: boolean;
   /** Accessible label for screen readers */
-  'aria-label'?: string
-  className?: string
+  "aria-label"?: string;
+  className?: string;
 }
 
 const variantColor: Record<ProgressBarVariant, string> = {
-  positive: 'var(--color-accent-positive)',
-  warning:  'var(--color-accent-warning)',
-  danger:   'var(--color-accent-danger)',
-  neutral:  'var(--color-text-secondary)',
-}
+  positive: "var(--color-accent-positive)",
+  warning: "var(--color-accent-warning)",
+  danger: "var(--color-accent-danger)",
+  neutral: "var(--color-text-secondary)",
+};
 
 export function ProgressBar({
   value,
-  variant = 'neutral',
+  variant = "neutral",
   showLabel = false,
-  'aria-label': ariaLabel,
-  className = '',
+  "aria-label": ariaLabel,
+  className = "",
 }: ProgressBarProps) {
-  const clamped = Math.min(100, Math.max(0, value))
+  const clamped = Math.min(100, Math.max(0, value));
 
   return (
-    <div className={['flex items-center gap-2', className].filter(Boolean).join(' ')}>
+    <div
+      className={["flex items-center gap-2", className]
+        .filter(Boolean)
+        .join(" ")}
+    >
       <div
         role="progressbar"
         aria-valuenow={clamped}
@@ -44,7 +48,10 @@ export function ProgressBar({
       >
         <div
           className="h-full rounded-full transition-[width] duration-200 ease-out"
-          style={{ width: `${clamped}%`, backgroundColor: variantColor[variant] }}
+          style={{
+            width: `${clamped}%`,
+            backgroundColor: variantColor[variant],
+          }}
         />
       </div>
       {showLabel && (
@@ -53,5 +60,5 @@ export function ProgressBar({
         </span>
       )}
     </div>
-  )
+  );
 }

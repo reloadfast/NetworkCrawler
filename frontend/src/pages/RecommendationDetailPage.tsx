@@ -3,46 +3,53 @@
  * effort/impact indicators, and link back to device.
  * Route: /recommendations/:id
  */
-import { Link, useParams } from 'react-router-dom'
-import { Card, Badge } from '../components'
-import { useRecommendations } from '../hooks'
+import { Link, useParams } from "react-router-dom";
+import { Card, Badge, SkeletonCard } from "../components";
+import { useRecommendations } from "../hooks";
 
 function EffortImpactBar({ label, value }: { label: string; value: string }) {
   const filled =
-    value === 'low' ? 1 : value === 'medium' ? 2 : value === 'critical' ? 4 : 3
+    value === "low" ? 1 : value === "medium" ? 2 : value === "critical" ? 4 : 3;
   return (
     <div className="flex items-center gap-2" aria-label={`${label}: ${value}`}>
-      <span className="w-14 text-xs text-[var(--color-text-secondary)]">{label}</span>
-      <div className="flex gap-1">
+      <span className="w-14 text-xs text-[var(--color-text-secondary)]">
+        {label}
+      </span>
+      <div className="flex gap-1" aria-hidden="true">
         {[1, 2, 3].map((i) => (
           <div
             key={i}
             className={`h-2 w-6 rounded-sm ${
               i <= filled
-                ? 'bg-[var(--color-accent-primary)]'
-                : 'bg-[var(--color-border)]'
+                ? "bg-[var(--color-accent-primary)]"
+                : "bg-[var(--color-border)]"
             }`}
           />
         ))}
       </div>
-      <span className="text-xs capitalize text-[var(--color-text-secondary)]">{value}</span>
+      <span className="text-xs capitalize text-[var(--color-text-secondary)]">
+        {value}
+      </span>
     </div>
-  )
+  );
 }
 
 export function RecommendationDetailPage() {
-  const { id } = useParams<{ id: string }>()
-  const recId = Number(id)
-  const { recommendations, loading, error } = useRecommendations()
+  const { id } = useParams<{ id: string }>();
+  const recId = Number(id);
+  const { recommendations, loading, error } = useRecommendations();
 
-  if (loading) return <p className="text-[var(--color-text-secondary)]">Loading…</p>
-  if (error) return <p className="text-[var(--color-accent-danger)]">Error: {error}</p>
+  if (loading) return <SkeletonCard height="48" />;
+  if (error)
+    return <p className="text-[var(--color-accent-danger)]">Error: {error}</p>;
 
-  const rec = recommendations.find((r) => r.id === recId)
+  const rec = recommendations.find((r) => r.id === recId);
   if (!rec) {
     return (
-      <p className="text-[var(--color-text-secondary)]">Recommendation not found.</p>
-    )
+      <p className="text-[var(--color-text-secondary)]">
+        Recommendation not found.
+      </p>
+    );
   }
 
   return (
@@ -67,7 +74,9 @@ export function RecommendationDetailPage() {
           <Badge variant={rec.severity}>{rec.severity}</Badge>
           <h1 className="text-xl font-bold">{rec.title}</h1>
         </div>
-        <p className="mb-4 text-sm text-[var(--color-text-secondary)]">{rec.description}</p>
+        <p className="mb-4 text-sm text-[var(--color-text-secondary)]">
+          {rec.description}
+        </p>
         <div className="flex flex-col gap-2">
           <EffortImpactBar label="Effort" value={rec.effort} />
           <EffortImpactBar label="Impact" value={rec.impact} />
@@ -75,11 +84,8 @@ export function RecommendationDetailPage() {
         <div className="mt-4 border-t border-[var(--color-border)] pt-4">
           <span className="text-xs text-[var(--color-text-secondary)]">
             Check: <span className="font-mono">{rec.check_id}</span>
-            {' · '}
-            <Link
-              to={`/devices/${rec.device_id}`}
-              className="hover:underline"
-            >
+            {" · "}
+            <Link to={`/devices/${rec.device_id}`} className="hover:underline">
               Device #{rec.device_id}
             </Link>
           </span>
@@ -98,11 +104,13 @@ export function RecommendationDetailPage() {
               >
                 {i + 1}
               </span>
-              <span className="text-sm text-[var(--color-text-primary)]">{step}</span>
+              <span className="text-sm text-[var(--color-text-primary)]">
+                {step}
+              </span>
             </li>
           ))}
         </ol>
       </Card>
     </div>
-  )
+  );
 }

@@ -2,14 +2,20 @@
  * DevicesPage — sortable/filterable table of all discovered devices.
  * Route: /devices
  */
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Card, Badge, SkeletonTable } from '../components'
-import { useDevices, useRisks } from '../hooks'
-import type { Device } from '../types/api'
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { Card, Badge, SkeletonTable } from "../components";
+import { useDevices, useRisks } from "../hooks";
+import type { Device } from "../types/api";
 
-type SortKey = 'ip_address' | 'hostname' | 'os_guess' | 'ports' | 'risks' | 'last_seen'
-type SortDir = 'asc' | 'desc'
+type SortKey =
+  | "ip_address"
+  | "hostname"
+  | "os_guess"
+  | "ports"
+  | "risks"
+  | "last_seen";
+type SortDir = "asc" | "desc";
 
 function sortDevices(
   devices: Device[],
@@ -18,82 +24,82 @@ function sortDevices(
   dir: SortDir,
 ): Device[] {
   return [...devices].sort((a, b) => {
-    let av: string | number = 0
-    let bv: string | number = 0
+    let av: string | number = 0;
+    let bv: string | number = 0;
     switch (key) {
-      case 'ip_address':
-        av = a.ip_address
-        bv = b.ip_address
-        break
-      case 'hostname':
-        av = a.hostname ?? ''
-        bv = b.hostname ?? ''
-        break
-      case 'os_guess':
-        av = a.os_guess ?? ''
-        bv = b.os_guess ?? ''
-        break
-      case 'ports':
-        av = a.ports.length
-        bv = b.ports.length
-        break
-      case 'risks':
-        av = riskCounts[a.id] ?? 0
-        bv = riskCounts[b.id] ?? 0
-        break
-      case 'last_seen':
-        av = a.last_seen ?? ''
-        bv = b.last_seen ?? ''
-        break
+      case "ip_address":
+        av = a.ip_address;
+        bv = b.ip_address;
+        break;
+      case "hostname":
+        av = a.hostname ?? "";
+        bv = b.hostname ?? "";
+        break;
+      case "os_guess":
+        av = a.os_guess ?? "";
+        bv = b.os_guess ?? "";
+        break;
+      case "ports":
+        av = a.ports.length;
+        bv = b.ports.length;
+        break;
+      case "risks":
+        av = riskCounts[a.id] ?? 0;
+        bv = riskCounts[b.id] ?? 0;
+        break;
+      case "last_seen":
+        av = a.last_seen ?? "";
+        bv = b.last_seen ?? "";
+        break;
     }
-    if (av < bv) return dir === 'asc' ? -1 : 1
-    if (av > bv) return dir === 'asc' ? 1 : -1
-    return 0
-  })
+    if (av < bv) return dir === "asc" ? -1 : 1;
+    if (av > bv) return dir === "asc" ? 1 : -1;
+    return 0;
+  });
 }
 
 export function DevicesPage() {
-  const { devices, loading, error } = useDevices()
-  const { risks } = useRisks()
-  const [filter, setFilter] = useState('')
-  const [sortKey, setSortKey] = useState<SortKey>('ip_address')
-  const [sortDir, setSortDir] = useState<SortDir>('asc')
+  const { devices, loading, error } = useDevices();
+  const { risks } = useRisks();
+  const [filter, setFilter] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("ip_address");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const riskCounts = useMemo(() => {
-    const counts: Record<number, number> = {}
+    const counts: Record<number, number> = {};
     for (const r of risks) {
-      counts[r.device_id] = (counts[r.device_id] ?? 0) + 1
+      counts[r.device_id] = (counts[r.device_id] ?? 0) + 1;
     }
-    return counts
-  }, [risks])
+    return counts;
+  }, [risks]);
 
   const filtered = useMemo(() => {
-    const q = filter.toLowerCase()
+    const q = filter.toLowerCase();
     return devices.filter(
       (d) =>
         d.ip_address.includes(q) ||
-        (d.hostname ?? '').toLowerCase().includes(q) ||
-        (d.mac_address ?? '').toLowerCase().includes(q) ||
-        (d.os_guess ?? '').toLowerCase().includes(q),
-    )
-  }, [devices, filter])
+        (d.hostname ?? "").toLowerCase().includes(q) ||
+        (d.mac_address ?? "").toLowerCase().includes(q) ||
+        (d.os_guess ?? "").toLowerCase().includes(q),
+    );
+  }, [devices, filter]);
 
   const sorted = useMemo(
     () => sortDevices(filtered, riskCounts, sortKey, sortDir),
     [filtered, riskCounts, sortKey, sortDir],
-  )
+  );
 
   const handleSort = (key: SortKey) => {
     if (key === sortKey) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
-      setSortKey(key)
-      setSortDir('asc')
+      setSortKey(key);
+      setSortDir("asc");
     }
-  }
+  };
 
   const SortIcon = ({ k }: { k: SortKey }) =>
-    sortKey === k ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ' ⬍'
+    sortKey === k ? (sortDir === "asc" ? " ▲" : " ▼") : " ⬍";
 
   return (
     <div>
@@ -110,7 +116,9 @@ export function DevicesPage() {
       </div>
 
       {loading && <SkeletonTable rows={6} />}
-      {error && <p className="text-[var(--color-accent-danger)]">Error: {error}</p>}
+      {error && (
+        <p className="text-[var(--color-accent-danger)]">Error: {error}</p>
+      )}
 
       {!loading && !error && devices.length === 0 && (
         <Card>
@@ -128,20 +136,25 @@ export function DevicesPage() {
                 <tr className="border-b border-[var(--color-border)] text-left text-xs uppercase tracking-wider text-[var(--color-text-secondary)]">
                   {(
                     [
-                      ['ip_address', 'IP Address'],
-                      ['hostname', 'Hostname'],
-                      ['os_guess', 'OS'],
-                      ['ports', 'Ports'],
-                      ['risks', 'Risks'],
-                      ['last_seen', 'Last Seen'],
+                      ["ip_address", "IP Address"],
+                      ["hostname", "Hostname"],
+                      ["os_guess", "OS"],
+                      ["ports", "Ports"],
+                      ["risks", "Risks"],
+                      ["last_seen", "Last Seen"],
                     ] as [SortKey, string][]
                   ).map(([key, label]) => (
                     <th
                       key={key}
+                      scope="col"
                       className="cursor-pointer select-none px-4 py-3 hover:text-[var(--color-text-primary)]"
                       onClick={() => handleSort(key)}
                       aria-sort={
-                        sortKey === key ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
+                        sortKey === key
+                          ? sortDir === "asc"
+                            ? "ascending"
+                            : "descending"
+                          : "none"
                       }
                     >
                       {label}
@@ -175,10 +188,10 @@ export function DevicesPage() {
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-[var(--color-text-secondary)]">
-                      {device.hostname ?? '—'}
+                      {device.hostname ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-[var(--color-text-secondary)]">
-                      {device.os_guess ?? '—'}
+                      {device.os_guess ?? "—"}
                     </td>
                     <td className="px-4 py-3">{device.ports.length}</td>
                     <td className="px-4 py-3">
@@ -189,7 +202,9 @@ export function DevicesPage() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-[var(--color-text-secondary)]">
-                      {device.last_seen ? new Date(device.last_seen).toLocaleString() : '—'}
+                      {device.last_seen
+                        ? new Date(device.last_seen).toLocaleString()
+                        : "—"}
                     </td>
                   </tr>
                 ))}
@@ -199,5 +214,5 @@ export function DevicesPage() {
         </Card>
       )}
     </div>
-  )
+  );
 }
