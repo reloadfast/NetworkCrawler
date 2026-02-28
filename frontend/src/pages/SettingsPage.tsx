@@ -2,7 +2,7 @@
  * SettingsPage — application configuration and system information.
  * Route: /settings
  */
-import React, { useState } from "react";
+import { useState } from "react";
 import { Card } from "../components";
 import { useAppVersion } from "../hooks/useAppVersion";
 
