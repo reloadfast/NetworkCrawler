@@ -1,6 +1,7 @@
 /**
  * Layout — persistent shell with top nav and main content area.
  * Renders theme toggle and nav links; wraps all route pages.
+ * Includes a skip-to-main-content link for keyboard users.
  */
 import { NavLink, Outlet } from 'react-router-dom'
 import { useTheme } from '../hooks'
@@ -17,6 +18,18 @@ export function Layout() {
 
   return (
     <div className="min-h-screen bg-[var(--color-background)] text-[var(--color-text-primary)]">
+      {/* Skip link — visible only on keyboard focus */}
+      <a
+        href="#main-content"
+        className={[
+          'sr-only focus:not-sr-only',
+          'fixed left-2 top-2 z-[100] rounded px-3 py-1.5 text-sm font-medium',
+          'bg-[var(--color-accent-primary)] text-white',
+        ].join(' ')}
+      >
+        Skip to main content
+      </a>
+
       <header className="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
           <div className="flex items-center gap-6">
@@ -50,7 +63,7 @@ export function Layout() {
           </button>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+      <main id="main-content" className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
         <div className="page-enter">
           <Outlet />
         </div>

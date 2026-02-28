@@ -4,7 +4,7 @@
  * Route: /recommendations/:id
  */
 import { Link, useParams } from 'react-router-dom'
-import { Card, Badge } from '../components'
+import { Card, Badge, SkeletonCard } from '../components'
 import { useRecommendations } from '../hooks'
 
 function EffortImpactBar({ label, value }: { label: string; value: string }) {
@@ -13,7 +13,7 @@ function EffortImpactBar({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center gap-2" aria-label={`${label}: ${value}`}>
       <span className="w-14 text-xs text-[var(--color-text-secondary)]">{label}</span>
-      <div className="flex gap-1">
+      <div className="flex gap-1" aria-hidden="true">
         {[1, 2, 3].map((i) => (
           <div
             key={i}
@@ -35,7 +35,7 @@ export function RecommendationDetailPage() {
   const recId = Number(id)
   const { recommendations, loading, error } = useRecommendations()
 
-  if (loading) return <p className="text-[var(--color-text-secondary)]">Loading…</p>
+  if (loading) return <SkeletonCard height="48" />
   if (error) return <p className="text-[var(--color-accent-danger)]">Error: {error}</p>
 
   const rec = recommendations.find((r) => r.id === recId)

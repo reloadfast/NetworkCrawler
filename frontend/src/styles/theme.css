@@ -102,3 +102,11 @@ body {
 
 .toast-enter  { animation: toastIn  0.22s ease-out both; }
 .toast-exit   { animation: toastOut 0.22s ease-in  both; }
+
+/* ── Focus-visible ring ───────────────────────────────────────────────────── */
+/* Provides a consistent keyboard-focus indicator across all interactive
+   elements without hiding mouse-click focus (uses :focus-visible). */
+:focus-visible {
+  outline: 2px solid var(--color-accent-primary);
+  outline-offset: 2px;
+}
