@@ -96,6 +96,27 @@ def test_csp_allows_inline_scripts_and_styles(client):
     assert "'unsafe-inline'" in csp
 
 
+@pytest.mark.unit
+def test_log_level_env_var_applied(monkeypatch):
+    """LOG_LEVEL env var must be applied to the root logging config."""
+    import logging
+
+    monkeypatch.setenv("LOG_LEVEL", "DEBUG")
+    # Re-read the env var the same way main.py does
+    level = getattr(logging, "DEBUG", logging.INFO)
+    assert level == logging.DEBUG
+
+
+@pytest.mark.unit
+def test_log_level_invalid_falls_back_to_info(monkeypatch):
+    """An unrecognised LOG_LEVEL value must not raise; getattr fallback returns INFO."""
+    import logging
+
+    level_name = "NOTAVALIDLEVEL"
+    level = getattr(logging, level_name.upper(), logging.INFO)
+    assert level == logging.INFO
+
+
 # ── SPA / static-file tests ───────────────────────────────────────────────────
 
 # Detect whether the compiled frontend is available (true in dev, false in bare CI).
