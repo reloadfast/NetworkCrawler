@@ -340,3 +340,54 @@ def test_upsert_port_idempotent(session):
     session.commit()
 
     assert p1.id == p2.id
+
+
+# ── _migrate_schema tests ─────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_migrate_schema_adds_missing_trusted_column():
+    """_migrate_schema adds 'trusted' to devices table when it is absent."""
+    import app.models.device  # noqa: F401 — register ORM models
+    import app.models.scan  # noqa: F401 — register ORM models
+    from app.db import Base, _migrate_schema
+    from sqlalchemy import text
+
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(bind=engine)
+
+    # Drop the trusted column by recreating devices without it
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE devices RENAME TO _devices_old"))
+        conn.execute(
+            text(
+                "CREATE TABLE devices ("
+                "id INTEGER PRIMARY KEY, "
+                "ip_address TEXT NOT NULL UNIQUE, "
+                "mac_address TEXT, vendor TEXT, hostname TEXT, os_guess TEXT, "
+                "first_seen DATETIME, last_seen DATETIME"
+                ")"
+            )
+        )
+        conn.commit()
+
+    _migrate_schema(engine)
+
+    with engine.connect() as conn:
+        result = conn.execute(text("PRAGMA table_info(devices)"))
+        cols = {row[1] for row in result}
+    assert "trusted" in cols
+
+
+@pytest.mark.unit
+def test_migrate_schema_is_idempotent():
+    """Calling _migrate_schema twice on a fully-migrated DB does not raise."""
+    import app.models.device  # noqa: F401 — register ORM models
+    import app.models.scan  # noqa: F401 — register ORM models
+    from app.db import Base, _migrate_schema
+
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(bind=engine)
+
+    _migrate_schema(engine)
+    _migrate_schema(engine)  # second call must not raise

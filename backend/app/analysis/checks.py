@@ -15,6 +15,11 @@ Check catalogue:
   check_smb_open             — ports 445/137-139 open         high
   check_printer_iot_admin    — IoT/printer admin on 80/8080   medium
   check_outdated_banner      — version_banner looks old       low
+  check_rdp_exposed          — port 3389 open                 high
+  check_vnc_exposed          — port 5900 open                 high
+  check_mqtt_open            — port 1883 open (no TLS)        medium
+  check_open_dns_resolver    — port 53 open                   medium
+  check_modbus_open          — port 502 open                  high
 """
 
 from __future__ import annotations
@@ -316,6 +321,104 @@ def check_outdated_banner(device: Device) -> list[RiskData]:
     return findings
 
 
+def check_rdp_exposed(device: Device) -> list[RiskData]:
+    """HIGH — RDP (port 3389) exposed on the network."""
+    ports = _has_port(device, 3389)
+    if not ports:
+        return []
+    return [
+        RiskData(
+            check_id="rdp_exposed",
+            severity="high",
+            title="RDP port exposed",
+            description=(
+                f"Device {device.ip_address} has RDP (port 3389/tcp) open. "
+                "RDP is a common target for brute-force and ransomware attacks. "
+                "Restrict access to trusted hosts only, or use a VPN."
+            ),
+        )
+    ]
+
+
+def check_vnc_exposed(device: Device) -> list[RiskData]:
+    """HIGH — VNC (port 5900) exposed on the network."""
+    ports = _has_port(device, 5900)
+    if not ports:
+        return []
+    return [
+        RiskData(
+            check_id="vnc_exposed",
+            severity="high",
+            title="VNC port exposed",
+            description=(
+                f"Device {device.ip_address} has VNC (port 5900/tcp) open. "
+                "VNC connections are often unencrypted and rely on weak passwords. "
+                "Tunnel VNC through SSH or a VPN, or disable it if not in use."
+            ),
+        )
+    ]
+
+
+def check_mqtt_open(device: Device) -> list[RiskData]:
+    """MEDIUM — MQTT broker (port 1883) open without TLS."""
+    ports = _has_port(device, 1883)
+    if not ports:
+        return []
+    return [
+        RiskData(
+            check_id="mqtt_open",
+            severity="medium",
+            title="Unencrypted MQTT broker open",
+            description=(
+                f"Device {device.ip_address} has an MQTT broker (port 1883/tcp) open. "
+                "Port 1883 is the plaintext MQTT port. Use port 8883 (MQTT over TLS) "
+                "and configure broker authentication to prevent unauthorised access."
+            ),
+        )
+    ]
+
+
+def check_open_dns_resolver(device: Device) -> list[RiskData]:
+    """MEDIUM — DNS service (port 53) open; potential open resolver."""
+    tcp_ports = _has_port(device, 53, protocol="tcp")
+    udp_ports = _has_port(device, 53, protocol="udp")
+    if not tcp_ports and not udp_ports:
+        return []
+    return [
+        RiskData(
+            check_id="open_dns_resolver",
+            severity="medium",
+            title="DNS service open — verify it is not an open resolver",
+            description=(
+                f"Device {device.ip_address} has DNS (port 53) open. "
+                "If this device is not intended to be a DNS server, disable the service. "
+                "If it is a DNS server, ensure it only answers queries for authorised "
+                "clients to prevent use as an open resolver in amplification attacks."
+            ),
+        )
+    ]
+
+
+def check_modbus_open(device: Device) -> list[RiskData]:
+    """HIGH — Modbus (port 502) open; ICS/SCADA protocol on a home LAN."""
+    ports = _has_port(device, 502)
+    if not ports:
+        return []
+    return [
+        RiskData(
+            check_id="modbus_open",
+            severity="high",
+            title="Modbus/ICS port open",
+            description=(
+                f"Device {device.ip_address} has Modbus (port 502/tcp) open. "
+                "Modbus is an industrial control system protocol with no built-in "
+                "authentication. Its presence on a home LAN is unusual and potentially "
+                "dangerous. Verify the device and disable the service if not required."
+            ),
+        )
+    ]
+
+
 # ── Master list of all checks ─────────────────────────────────────────────────
 
 ALL_CHECKS = [
@@ -327,4 +430,9 @@ ALL_CHECKS = [
     check_smb_open,
     check_printer_iot_admin,
     check_outdated_banner,
+    check_rdp_exposed,
+    check_vnc_exposed,
+    check_mqtt_open,
+    check_open_dns_resolver,
+    check_modbus_open,
 ]

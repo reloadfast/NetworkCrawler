@@ -352,6 +352,93 @@ def test_outdated_banner_multiple_ports_multiple_findings():
     assert len(results) == 2
 
 
+# ── check_rdp_exposed ─────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_check_rdp_exposed_returns_risk():
+    from app.analysis.checks import check_rdp_exposed
+
+    device = _make_device(ports=[_make_port(3389)])
+    results = check_rdp_exposed(device)
+    assert len(results) == 1
+    assert results[0].check_id == "rdp_exposed"
+    assert results[0].severity == "high"
+
+
+@pytest.mark.unit
+def test_check_rdp_no_risk_when_port_closed():
+    from app.analysis.checks import check_rdp_exposed
+
+    assert check_rdp_exposed(_make_device(ports=[_make_port(22)])) == []
+
+
+# ── check_vnc_exposed ─────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_check_vnc_exposed_returns_risk():
+    from app.analysis.checks import check_vnc_exposed
+
+    device = _make_device(ports=[_make_port(5900)])
+    results = check_vnc_exposed(device)
+    assert len(results) == 1
+    assert results[0].check_id == "vnc_exposed"
+    assert results[0].severity == "high"
+
+
+# ── check_mqtt_open ───────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_check_mqtt_open_returns_risk():
+    from app.analysis.checks import check_mqtt_open
+
+    device = _make_device(ports=[_make_port(1883)])
+    results = check_mqtt_open(device)
+    assert len(results) == 1
+    assert results[0].check_id == "mqtt_open"
+    assert results[0].severity == "medium"
+
+
+# ── check_open_dns_resolver ───────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_check_open_dns_resolver_returns_risk_tcp():
+    from app.analysis.checks import check_open_dns_resolver
+
+    device = _make_device(ports=[_make_port(53, protocol="tcp")])
+    results = check_open_dns_resolver(device)
+    assert len(results) == 1
+    assert results[0].check_id == "open_dns_resolver"
+    assert results[0].severity == "medium"
+
+
+@pytest.mark.unit
+def test_check_open_dns_resolver_returns_risk_udp():
+    from app.analysis.checks import check_open_dns_resolver
+
+    device = _make_device(ports=[_make_port(53, protocol="udp")])
+    results = check_open_dns_resolver(device)
+    assert len(results) == 1
+    assert results[0].check_id == "open_dns_resolver"
+
+
+# ── check_modbus_open ─────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_check_modbus_open_returns_risk():
+    from app.analysis.checks import check_modbus_open
+
+    device = _make_device(ports=[_make_port(502)])
+    results = check_modbus_open(device)
+    assert len(results) == 1
+    assert results[0].check_id == "modbus_open"
+    assert results[0].severity == "high"
+
+
 # ── Integration: run_checks with real DB ─────────────────────────────────────
 
 

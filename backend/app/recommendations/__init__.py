@@ -169,6 +169,90 @@ _CATALOGUE: dict[str, _Advice] = {
         effort="medium",
         impact="low",
     ),
+    "rdp_exposed": _Advice(
+        title="Restrict RDP access",
+        description=(
+            "RDP (Remote Desktop Protocol) on port 3389 is a frequent target for "
+            "brute-force and ransomware attacks. Restrict access to trusted hosts only."
+        ),
+        steps=[
+            "Determine whether RDP is actively needed on this device.",
+            "If not needed, disable Remote Desktop in System → Remote Settings.",
+            "If needed, restrict RDP access via a firewall rule to specific trusted IPs only.",
+            "Enable Network Level Authentication (NLA) if RDP must stay enabled.",
+            "Consider using a VPN instead of exposing RDP directly on the LAN.",
+        ],
+        effort="low",
+        impact="high",
+    ),
+    "vnc_exposed": _Advice(
+        title="Secure or disable VNC",
+        description=(
+            "VNC (Virtual Network Computing) on port 5900 often uses weak passwords and "
+            "transmits data unencrypted. Tunnel through SSH or a VPN, or disable it."
+        ),
+        steps=[
+            "Determine whether VNC is actively in use on this device.",
+            "If not needed, stop and disable the VNC server service.",
+            "If needed, configure VNC to only listen on localhost and tunnel via SSH "
+            "(ssh -L 5900:localhost:5900 user@host).",
+            "Set a strong VNC password (8+ characters, mixed case and symbols).",
+            "Apply any available VNC server security updates.",
+        ],
+        effort="low",
+        impact="high",
+    ),
+    "mqtt_open": _Advice(
+        title="Secure MQTT broker with TLS and authentication",
+        description=(
+            "The unencrypted MQTT port (1883) allows anyone on the LAN to publish or "
+            "subscribe to any topic. Switch to MQTT over TLS (port 8883) and enable "
+            "broker-level authentication."
+        ),
+        steps=[
+            "Install a TLS certificate on the MQTT broker (e.g., Mosquitto).",
+            "Configure the broker to use port 8883 and require TLS.",
+            "Enable username/password or client-certificate authentication in broker config.",
+            "Update all MQTT clients to connect on 8883 with credentials.",
+            "Disable the plaintext port 1883 listener in the broker configuration.",
+        ],
+        effort="medium",
+        impact="medium",
+    ),
+    "open_dns_resolver": _Advice(
+        title="Restrict DNS to authorised clients",
+        description=(
+            "A DNS service accessible from the whole LAN may be abused as an open resolver "
+            "in amplification attacks or used to intercept DNS queries."
+        ),
+        steps=[
+            "If this device is not intended to be a DNS server, disable the DNS service.",
+            "If it is a DNS server, configure it to only answer queries from "
+            "trusted IP ranges (e.g., your LAN subnet).",
+            "For Pi-hole or AdGuard Home, verify the listen interface is set to LAN only.",
+            "Block DNS (port 53) on the WAN-facing interface of your router.",
+            "Enable DNSSEC validation if supported by your resolver.",
+        ],
+        effort="low",
+        impact="medium",
+    ),
+    "modbus_open": _Advice(
+        title="Disable Modbus or isolate the device",
+        description=(
+            "Modbus is an industrial control protocol with no built-in authentication "
+            "or encryption. Its presence on a home LAN is a significant security risk."
+        ),
+        steps=[
+            "Identify the device running Modbus on port 502.",
+            "Determine whether the service is intentional or a misconfiguration.",
+            "If not needed, disable the Modbus service on the device.",
+            "If the device is an IoT or industrial device that requires Modbus, isolate it "
+            "on a separate VLAN with strict firewall rules.",
+            "Block port 502 on your router/firewall for all but the specific device.",
+        ],
+        effort="medium",
+        impact="high",
+    ),
 }
 
 

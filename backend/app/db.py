@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 if TYPE_CHECKING:
@@ -25,6 +25,22 @@ class Base(DeclarativeBase):
     pass
 
 
+def _migrate_schema(engine) -> None:
+    """Add any missing columns introduced after initial schema creation."""
+    migrations = [
+        ("devices", "trusted", "BOOLEAN NOT NULL DEFAULT 0"),
+        ("scans", "current_stage", "TEXT"),
+        ("scans", "warning_message", "TEXT"),
+    ]
+    with engine.connect() as conn:
+        for table, column, col_def in migrations:
+            result = conn.execute(text(f"PRAGMA table_info({table})"))  # noqa: S608 — PRAGMA not user input
+            existing_cols = {row[1] for row in result}
+            if column not in existing_cols:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_def}"))  # noqa: S608 — table/column/col_def are internal constants, not user input
+                conn.commit()
+
+
 def init_db() -> None:
     """Create all tables if they don't exist."""
     from app.models import device as _device  # noqa: F401 — side-effect import registers ORM tables
@@ -35,6 +51,7 @@ def init_db() -> None:
     from app.models import scan as _scan  # noqa: F401 — side-effect import registers ORM tables
 
     Base.metadata.create_all(bind=engine)
+    _migrate_schema(engine)
 
 
 def get_db():
