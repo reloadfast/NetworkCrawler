@@ -1,4 +1,4 @@
-"""REST API — /api/devices, /api/scans, and /api/risks endpoints."""
+"""REST API — /api/devices, /api/scans, /api/risks, and /api/recommendations endpoints."""
 
 from __future__ import annotations
 
@@ -245,4 +245,89 @@ def _risk_to_out(r) -> RiskOut:  # noqa: ANN001 — SQLAlchemy instance
         title=r.title,
         description=r.description,
         detected_at=r.detected_at.isoformat() if r.detected_at else None,
+    )
+
+
+# ── /api/recommendations ──────────────────────────────────────────────────────
+
+import json as _json  # noqa: E402 — after router definitions to keep imports grouped above
+
+
+class RecommendationOut(BaseModel):
+    id: int
+    device_id: int
+    risk_id: int
+    check_id: str
+    severity: str
+    title: str
+    description: str
+    steps: list[str]
+    effort: str
+    impact: str
+    created_at: str | None
+    updated_at: str | None
+
+    model_config = {"from_attributes": True}
+
+
+@router.get("/recommendations", response_model=list[RecommendationOut])
+def list_recommendations(
+    db: Annotated[Session, Depends(get_db)],
+    device_id: int | None = None,
+    severity: str | None = None,
+) -> list[RecommendationOut]:
+    """Return all recommendations, optionally filtered by device_id and/or severity."""
+    from app.models.recommendation import Recommendation
+
+    stmt = select(Recommendation)
+    if device_id is not None:
+        stmt = stmt.where(Recommendation.device_id == device_id)
+    if severity is not None:
+        stmt = stmt.where(Recommendation.severity == severity)
+    recs = db.execute(stmt).scalars().all()
+    return [_rec_to_out(r) for r in recs]
+
+
+@router.get("/recommendations/{rec_id}", response_model=RecommendationOut)
+def get_recommendation(rec_id: int, db: Annotated[Session, Depends(get_db)]) -> RecommendationOut:
+    """Return a single recommendation by ID."""
+    from app.models.recommendation import Recommendation
+
+    stmt = select(Recommendation).where(Recommendation.id == rec_id)
+    rec = db.execute(stmt).scalar_one_or_none()
+    if rec is None:
+        raise HTTPException(status_code=404, detail="Recommendation not found")
+    return _rec_to_out(rec)
+
+
+@router.get("/devices/{device_id}/recommendations", response_model=list[RecommendationOut])
+def device_recommendations(
+    device_id: int, db: Annotated[Session, Depends(get_db)]
+) -> list[RecommendationOut]:
+    """Return all recommendations for a specific device."""
+    from app.models.device import Device
+    from app.models.recommendation import Recommendation
+
+    device = db.execute(select(Device).where(Device.id == device_id)).scalar_one_or_none()
+    if device is None:
+        raise HTTPException(status_code=404, detail="Device not found")
+    stmt = select(Recommendation).where(Recommendation.device_id == device_id)
+    recs = db.execute(stmt).scalars().all()
+    return [_rec_to_out(r) for r in recs]
+
+
+def _rec_to_out(r) -> RecommendationOut:  # noqa: ANN001 — SQLAlchemy instance
+    return RecommendationOut(
+        id=r.id,
+        device_id=r.device_id,
+        risk_id=r.risk_id,
+        check_id=r.check_id,
+        severity=r.severity,
+        title=r.title,
+        description=r.description,
+        steps=_json.loads(r.steps),
+        effort=r.effort,
+        impact=r.impact,
+        created_at=r.created_at.isoformat() if r.created_at else None,
+        updated_at=r.updated_at.isoformat() if r.updated_at else None,
     )

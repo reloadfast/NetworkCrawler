@@ -48,6 +48,13 @@ def run_scan_and_persist(triggered_by: str = "scheduler") -> int:
 
         run_all_checks(db)
 
+        # Generate/update hardening recommendations for all devices
+        from app.recommendations import (
+            generate_all_recommendations,  # noqa: PLC0415 — deferred to avoid circular import at module level
+        )
+
+        generate_all_recommendations(db)
+
         scan.status = "completed"
         scan.finished_at = datetime.now(tz=UTC)
         scan.duration_seconds = round(time.monotonic() - t0, 2)
