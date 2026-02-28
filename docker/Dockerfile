@@ -33,12 +33,19 @@ LABEL org.opencontainers.image.title="NetworkCrawler" \
       org.opencontainers.image.vendor="talesofthemoon" \
       org.opencontainers.image.licenses="MIT"
 
-# Install system-level scanning tools
+# Install system-level scanning tools + libcap2-bin for setcap
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         nmap \
         arp-scan \
+        libcap2-bin \
     && rm -rf /var/lib/apt/lists/*
+
+# Grant cap_net_raw to the scanner binaries so they can open raw sockets when
+# running as non-root uid 1000.  --cap-add=NET_RAW at runtime puts NET_RAW in
+# the bounding set; setcap +ep promotes it to the effective set on exec.
+RUN setcap cap_net_raw+ep /usr/sbin/arp-scan \
+    && setcap cap_net_raw+ep "$(which nmap)"
 
 # Create a dedicated non-root user
 RUN groupadd --gid 1000 crawler \
