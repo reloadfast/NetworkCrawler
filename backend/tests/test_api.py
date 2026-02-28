@@ -503,8 +503,9 @@ def test_valid_severities_return_200(client):
 
 def test_malformed_steps_json_returns_empty_list(client, seeded_db, seeded_risk, db_engine):
     """Recommendation with malformed steps JSON must return 200 with steps=[]."""
+    import sqlalchemy
+    from app.models.recommendation import Recommendation  # noqa: PLC0415 — deferred import
     from sqlalchemy.orm import sessionmaker
-    from app.models.recommendation import Recommendation
 
     Session = sessionmaker(bind=db_engine)  # noqa: N806 — sessionmaker convention; uppercase matches class naming
     db = Session()
@@ -534,15 +535,16 @@ def test_malformed_steps_json_returns_empty_list(client, seeded_db, seeded_risk,
     finally:
         Session2 = sessionmaker(bind=db_engine)  # noqa: N806 — sessionmaker convention; uppercase matches class naming
         db2 = Session2()
-        db2.execute(__import__("sqlalchemy").delete(Recommendation).where(Recommendation.id == rec_id))
+        db2.execute(sqlalchemy.delete(Recommendation).where(Recommendation.id == rec_id))
         db2.commit()
         db2.close()
 
 
 def test_empty_steps_returns_empty_list(client, seeded_db, seeded_risk, db_engine):
     """Recommendation with empty-string steps must return 200 with steps=[]."""
+    import sqlalchemy
+    from app.models.recommendation import Recommendation  # noqa: PLC0415 — deferred import
     from sqlalchemy.orm import sessionmaker
-    from app.models.recommendation import Recommendation
 
     Session = sessionmaker(bind=db_engine)  # noqa: N806 — sessionmaker convention; uppercase matches class naming
     db = Session()
@@ -572,6 +574,6 @@ def test_empty_steps_returns_empty_list(client, seeded_db, seeded_risk, db_engin
     finally:
         Session2 = sessionmaker(bind=db_engine)  # noqa: N806 — sessionmaker convention; uppercase matches class naming
         db2 = Session2()
-        db2.execute(__import__("sqlalchemy").delete(Recommendation).where(Recommendation.id == rec_id))
+        db2.execute(sqlalchemy.delete(Recommendation).where(Recommendation.id == rec_id))
         db2.commit()
         db2.close()
