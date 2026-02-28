@@ -1,13 +1,47 @@
 /**
  * ScanBanner — top-of-page banner shown while a scan is in progress.
- * It pulses gently to indicate activity.
+ * It pulses gently to indicate activity and shows the current stage + elapsed time.
  */
+import { useEffect, useState } from "react";
+
+const STAGE_LABELS: Record<string, string> = {
+  scanning: "Scanning network…",
+  analysing: "Analysing risks…",
+};
+
+function useElapsed(startedAt: string | null | undefined): string {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!startedAt) return;
+    const origin = new Date(startedAt).getTime();
+    const tick = () =>
+      setElapsed(Math.max(0, Math.floor((Date.now() - origin) / 1000)));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [startedAt]);
+
+  const m = Math.floor(elapsed / 60);
+  const s = elapsed % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
 
 export interface ScanBannerProps {
   scanId?: number | null;
+  currentStage?: string | null;
+  startedAt?: string | null;
 }
 
-export function ScanBanner({ scanId }: ScanBannerProps) {
+export function ScanBanner({
+  scanId,
+  currentStage,
+  startedAt,
+}: ScanBannerProps) {
+  const elapsed = useElapsed(startedAt);
+  const stageLabel =
+    (currentStage && STAGE_LABELS[currentStage]) ?? "Scan in progress";
+
   return (
     <div
       role="status"
@@ -26,11 +60,16 @@ export function ScanBanner({ scanId }: ScanBannerProps) {
         <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[var(--color-accent-primary)]" />
       </span>
       <span>
-        Scan in progress
+        {stageLabel}
         {scanId != null && (
           <span className="ml-1 font-mono text-xs opacity-70">#{scanId}</span>
         )}
-        … results will update automatically.
+      </span>
+      <span
+        className="ml-auto font-mono text-xs opacity-70"
+        aria-label={`Elapsed ${elapsed}`}
+      >
+        {elapsed}
       </span>
     </div>
   );

@@ -33,6 +33,7 @@ class DeviceOut(BaseModel):
     vendor: str | None
     hostname: str | None
     os_guess: str | None
+    trusted: bool
     first_seen: str | None  # ISO-8601 string
     last_seen: str | None
     ports: list[PortOut] = []
@@ -48,6 +49,7 @@ class ScanOut(BaseModel):
     finished_at: str | None
     duration_seconds: float | None
     devices_found: int | None
+    current_stage: str | None
     error_message: str | None
     warning_message: str | None
     risks_critical: int | None
@@ -88,6 +90,29 @@ def get_device(device_id: int, db: Annotated[Session, Depends(get_db)]) -> Devic
     return _device_to_out(device)
 
 
+class _TrustedUpdate(BaseModel):
+    trusted: bool
+
+
+@router.patch("/devices/{device_id}/trusted", response_model=DeviceOut)
+def set_device_trusted(
+    device_id: int,
+    body: _TrustedUpdate,
+    db: Annotated[Session, Depends(get_db)],
+) -> DeviceOut:
+    """Toggle the trusted flag on a device."""
+    from app.models.device import Device
+
+    stmt = select(Device).options(selectinload(Device.ports)).where(Device.id == device_id)
+    device = db.execute(stmt).scalar_one_or_none()
+    if device is None:
+        raise HTTPException(status_code=404, detail="Device not found")
+    device.trusted = body.trusted
+    db.commit()
+    db.refresh(device)
+    return _device_to_out(device)
+
+
 def _device_to_out(d) -> DeviceOut:  # noqa: ANN001 — SQLAlchemy instance, validated via Pydantic
     return DeviceOut(
         id=d.id,
@@ -96,6 +121,7 @@ def _device_to_out(d) -> DeviceOut:  # noqa: ANN001 — SQLAlchemy instance, val
         vendor=d.vendor,
         hostname=d.hostname,
         os_guess=d.os_guess,
+        trusted=bool(d.trusted),
         first_seen=d.first_seen.isoformat() if d.first_seen else None,
         last_seen=d.last_seen.isoformat() if d.last_seen else None,
         ports=[
@@ -142,6 +168,7 @@ def _scan_to_out(s) -> ScanOut:  # noqa: ANN001 — SQLAlchemy instance
         finished_at=s.finished_at.isoformat() if s.finished_at else None,
         duration_seconds=s.duration_seconds,
         devices_found=s.devices_found,
+        current_stage=s.current_stage,
         error_message=s.error_message,
         warning_message=s.warning_message,
         risks_critical=s.risks_critical,

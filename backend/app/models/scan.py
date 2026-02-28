@@ -19,6 +19,8 @@ class Scan(Base):
     finished_at = Column(DateTime, nullable=True)
     duration_seconds = Column(Float, nullable=True)
     devices_found = Column(Integer, nullable=True)
+    current_stage = Column(String, nullable=True)
+    # "scanning" | "analysing" — only set while status="running"
     error_message = Column(Text, nullable=True)
     warning_message = Column(Text, nullable=True)
     # "completed" scans may have a warning_message when nmap failed but ARP succeeded

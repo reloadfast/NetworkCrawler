@@ -579,3 +579,45 @@ def test_empty_steps_returns_empty_list(client, seeded_db, seeded_risk, db_engin
         db2.execute(sqlalchemy.delete(Recommendation).where(Recommendation.id == rec_id))
         db2.commit()
         db2.close()
+
+
+def test_patch_device_trusted_toggles_flag(client, seeded_db):
+    """PATCH /api/devices/{id}/trusted should toggle the trusted field."""
+    device_id = seeded_db["device_id"]
+
+    # Default is untrusted
+    resp = client.get(f"/api/devices/{device_id}")
+    assert resp.status_code == 200
+    assert resp.json()["trusted"] is False
+
+    # Set trusted=True
+    resp = client.patch(
+        f"/api/devices/{device_id}/trusted",
+        json={"trusted": True},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["trusted"] is True
+
+    # Set back to False
+    resp = client.patch(
+        f"/api/devices/{device_id}/trusted",
+        json={"trusted": False},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["trusted"] is False
+
+
+def test_patch_device_trusted_404_for_unknown(client):
+    """PATCH /api/devices/{id}/trusted returns 404 for non-existent device."""
+    resp = client.patch("/api/devices/999999/trusted", json={"trusted": True})
+    assert resp.status_code == 404
+
+
+def test_scan_response_includes_current_stage(client, seeded_db):
+    """GET /api/scans response must include the current_stage field (may be null)."""
+    resp = client.get("/api/scans")
+    assert resp.status_code == 200
+    data = resp.json()
+    # The field must be present on every scan record (value may be null)
+    for scan in data:
+        assert "current_stage" in scan

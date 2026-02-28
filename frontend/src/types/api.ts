@@ -18,6 +18,7 @@ export interface Device {
   vendor: string | null;
   hostname: string | null;
   os_guess: string | null;
+  trusted: boolean;
   first_seen: string | null; // ISO-8601
   last_seen: string | null;
   ports: Port[];
@@ -31,6 +32,7 @@ export interface Scan {
   finished_at: string | null;
   duration_seconds: number | null;
   devices_found: number | null;
+  current_stage: string | null;
   error_message: string | null;
   warning_message: string | null;
   risks_critical: number | null;

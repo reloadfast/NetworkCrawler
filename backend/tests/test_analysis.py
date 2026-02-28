@@ -429,3 +429,38 @@ def test_run_all_checks_runs_across_all_devices(db_session):
 
     total = run_all_checks(db_session)
     assert total >= 2
+
+
+@pytest.mark.integration
+def test_trusted_device_generates_no_risks(db_session):
+    """Devices marked trusted must have all risks cleared and no new ones written."""
+    from app.analysis import run_checks
+    from app.db import upsert_device, upsert_port
+
+    device = upsert_device(db_session, ip_address="10.99.1.1")
+    db_session.flush()
+    upsert_port(db_session, device_id=device.id, port_number=23, service_name="telnet")
+    db_session.flush()
+
+    # First pass generates risks
+    risks_before = run_checks(db_session, device.id)
+    db_session.flush()
+    assert any(r.check_id == "telnet_open" for r in risks_before)
+
+    # Mark trusted and re-run
+    device.trusted = True
+    db_session.flush()
+    db_session.expire_all()
+
+    risks_after = run_checks(db_session, device.id)
+    db_session.flush()
+    assert risks_after == []
+
+    # Verify the DB also has no risk rows for this device
+    from app.models.risk import Risk
+    from sqlalchemy import select as sa_select
+
+    remaining = (
+        db_session.execute(sa_select(Risk).where(Risk.device_id == device.id)).scalars().all()
+    )
+    assert remaining == []

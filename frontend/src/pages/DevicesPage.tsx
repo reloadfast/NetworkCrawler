@@ -220,6 +220,15 @@ export function DevicesPage() {
                       >
                         {device.ip_address}
                       </Link>
+                      {device.trusted && (
+                        <span
+                          title="Trusted device"
+                          aria-label="Trusted device"
+                          className="ml-1.5 text-xs opacity-60"
+                        >
+                          🛡
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-[var(--color-text-secondary)]">
                       {device.hostname ?? "—"}

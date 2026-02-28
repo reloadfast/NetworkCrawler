@@ -37,9 +37,15 @@ def run_scan_and_persist(triggered_by: str = "scheduler") -> int:
 
     t0 = time.monotonic()
     try:
+        scan.current_stage = "scanning"
+        db.commit()
+
         result: ScanResult = orchestrate_scan()
         _persist_result(db, result)
         devices_found = len(result.hosts) + len(result.arp_only)
+
+        scan.current_stage = "analysing"
+        db.commit()
 
         # Run misconfiguration checks against all discovered devices
         from app.analysis import (
