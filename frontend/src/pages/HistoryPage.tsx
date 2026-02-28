@@ -2,7 +2,7 @@
  * HistoryPage — scan history with device-count and risk-severity trend charts.
  * Route: /history
  */
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { Card, PageHeader, SkeletonCard } from "../components";
 import { useScans } from "../hooks";
 import type { Scan } from "../types/api";
