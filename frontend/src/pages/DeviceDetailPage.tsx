@@ -2,7 +2,7 @@
  * DeviceDetailPage — ports/services table, risk list, timestamps.
  * Route: /devices/:id
  */
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Card, Badge, SkeletonCard, PageHeader } from "../components";
 import { useDevice, useRisks, useDeviceRecommendations } from "../hooks";
@@ -49,6 +49,30 @@ const RecCard = memo(function RecCard({ rec }: { rec: Recommendation }) {
   );
 });
 
+/** A risk paired with its linked recommendation (if any). */
+const RiskRecPair = memo(function RiskRecPair({
+  risk,
+  rec,
+}: {
+  risk: Risk;
+  rec: Recommendation | undefined;
+}) {
+  return (
+    <div className="grid gap-3 lg:grid-cols-2">
+      <RiskCard risk={risk} />
+      {rec ? (
+        <RecCard rec={rec} />
+      ) : (
+        <Card>
+          <p className="py-2 text-sm italic text-[var(--color-text-secondary)]">
+            No remediation available for this risk.
+          </p>
+        </Card>
+      )}
+    </div>
+  );
+});
+
 export function DeviceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const deviceId = Number(id);
@@ -56,6 +80,20 @@ export function DeviceDetailPage() {
   const { risks, loading: risksLoading } = useRisks({ deviceId });
   const { recommendations, loading: recsLoading } =
     useDeviceRecommendations(deviceId);
+
+  // Build a map of risk_id → recommendation for O(1) lookup
+  const recByRiskId = useMemo(() => {
+    const map = new Map<number, Recommendation>();
+    recommendations.forEach((r) => map.set(r.risk_id, r));
+    return map;
+  }, [recommendations]);
+
+  // Recommendations not linked to any risk shown in the list
+  const linkedRiskIds = useMemo(() => new Set(risks.map((r) => r.id)), [risks]);
+  const orphanRecs = useMemo(
+    () => recommendations.filter((r) => !linkedRiskIds.has(r.risk_id)),
+    [recommendations, linkedRiskIds],
+  );
 
   if (loading) return <SkeletonCard height="48" />;
   if (error)
@@ -169,61 +207,59 @@ export function DeviceDetailPage() {
         )}
       </Card>
 
-      {/* Risks */}
-      <h2 className="mb-3 text-lg font-semibold">
-        Risks{" "}
-        {!risksLoading && (
-          <span className="text-base font-normal text-[var(--color-text-secondary)]">
-            ({sortedRisks.length})
+      {/* Risks + Remediations paired side by side */}
+      <div className="mb-2 flex items-baseline gap-3">
+        <h2 className="text-lg font-semibold">Risks &amp; Remediations</h2>
+        {!risksLoading && !recsLoading && (
+          <span className="text-sm text-[var(--color-text-secondary)]">
+            {sortedRisks.length} risk{sortedRisks.length !== 1 ? "s" : ""}
           </span>
         )}
-      </h2>
-      {risksLoading ? (
-        <div className="flex flex-col gap-3">
-          {Array.from({ length: 2 }).map((_, i) => (
-            <SkeletonCard key={i} height="20" />
-          ))}
-        </div>
-      ) : sortedRisks.length === 0 ? (
-        <Card>
-          <p className="py-4 text-center text-sm text-[var(--color-text-secondary)]">
-            No risks detected for this device.
-          </p>
-        </Card>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {sortedRisks.map((risk) => (
-            <RiskCard key={risk.id} risk={risk} />
-          ))}
-        </div>
-      )}
+      </div>
 
-      {/* Recommendations */}
-      <h2 className="mb-3 mt-6 text-lg font-semibold">
-        Recommendations{" "}
-        {!recsLoading && (
-          <span className="text-base font-normal text-[var(--color-text-secondary)]">
-            ({recommendations.length})
-          </span>
-        )}
-      </h2>
-      {recsLoading ? (
+      {risksLoading || recsLoading ? (
         <div className="flex flex-col gap-3">
           {Array.from({ length: 2 }).map((_, i) => (
             <SkeletonCard key={i} height="20" />
           ))}
         </div>
-      ) : recommendations.length === 0 ? (
+      ) : sortedRisks.length === 0 && orphanRecs.length === 0 ? (
         <Card>
           <p className="py-4 text-center text-sm text-[var(--color-text-secondary)]">
-            No recommendations for this device.
+            No risks or recommendations for this device.
           </p>
         </Card>
       ) : (
-        <div className="flex flex-col gap-3">
-          {recommendations.map((rec) => (
-            <RecCard key={rec.id} rec={rec} />
+        <div className="flex flex-col gap-4">
+          {/* Header row for desktop */}
+          {sortedRisks.length > 0 && (
+            <div className="hidden lg:grid lg:grid-cols-2 lg:gap-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
+                Risk
+              </p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
+                Remediation
+              </p>
+            </div>
+          )}
+          {sortedRisks.map((risk) => (
+            <RiskRecPair
+              key={risk.id}
+              risk={risk}
+              rec={recByRiskId.get(risk.id)}
+            />
           ))}
+          {/* Orphan recommendations not linked to any discovered risk */}
+          {orphanRecs.length > 0 && (
+            <>
+              <h3 className="mt-2 text-sm font-semibold text-[var(--color-text-secondary)]">
+                Additional Recommendations
+              </h3>
+              {orphanRecs.map((rec) => (
+                <RecCard key={rec.id} rec={rec} />
+              ))}
+            </>
+          )}
         </div>
       )}
     </div>

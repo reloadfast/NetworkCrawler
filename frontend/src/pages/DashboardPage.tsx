@@ -108,17 +108,22 @@ const StatCard = memo(function StatCard({
   sub,
   accentColor,
   icon,
+  to,
 }: {
   label: string;
   value: React.ReactNode;
   sub?: string;
   accentColor: string;
   icon: React.ReactNode;
+  to?: string;
 }) {
-  return (
+  const inner = (
     <div
-      className="relative overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5"
-      style={{ borderLeft: `3px solid ${accentColor}` }}
+      className="relative overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 transition-all duration-150 hover:border-[var(--color-accent-primary)]/50 hover:shadow-md"
+      style={{
+        borderLeft: `3px solid ${accentColor}`,
+        cursor: to ? "pointer" : "default",
+      }}
     >
       <div className="flex items-start justify-between">
         <div>
@@ -140,6 +145,7 @@ const StatCard = memo(function StatCard({
       </div>
     </div>
   );
+  return to ? <Link to={to}>{inner}</Link> : inner;
 });
 
 export function DashboardPage() {
@@ -208,6 +214,7 @@ export function DashboardPage() {
               value={devices.length}
               accentColor={STRIPE.devices}
               icon={<DeviceIcon />}
+              to="/devices"
             />
             <StatCard
               label="Critical Risks"
@@ -218,6 +225,7 @@ export function DashboardPage() {
               }
               accentColor={STRIPE.critical}
               icon={<CriticalIcon />}
+              to="/risks?severity=critical"
             />
             <StatCard
               label="High Risks"
@@ -226,6 +234,7 @@ export function DashboardPage() {
               }
               accentColor={STRIPE.high}
               icon={<WarningIcon />}
+              to="/risks?severity=high"
             />
             <StatCard
               label="Medium / Low"
@@ -233,6 +242,7 @@ export function DashboardPage() {
               sub="risks"
               accentColor={STRIPE.other}
               icon={<ShieldIcon />}
+              to="/risks"
             />
           </div>
 
