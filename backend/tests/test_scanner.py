@@ -129,6 +129,16 @@ class TestRunArpScan:
                 run_arp_scan()
 
     @pytest.mark.unit
+    def test_does_not_pass_localnet_flag(self):
+        """--localnet conflicts with a subnet target; must never appear in the command."""
+        mock_result = MagicMock(returncode=0, stdout="", stderr="")
+        with patch("app.scanner.arp_scan.subprocess.run", return_value=mock_result) as mock_run:
+            run_arp_scan(interface="eth0", subnet="192.168.1.0/24")
+        cmd = mock_run.call_args[0][0]
+        assert "--localnet" not in cmd
+        assert "192.168.1.0/24" in cmd
+
+    @pytest.mark.unit
     def test_uses_env_vars_as_defaults(self, monkeypatch):
         monkeypatch.setenv("NETWORK_INTERFACE", "ens3")
         monkeypatch.setenv("SCAN_SUBNET", "10.0.0.0/8")

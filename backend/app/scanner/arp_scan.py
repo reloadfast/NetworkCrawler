@@ -42,7 +42,7 @@ def run_arp_scan(
     iface = interface or os.environ.get("NETWORK_INTERFACE", "eth0")
     target = subnet or os.environ.get("SCAN_SUBNET", "192.168.1.0/24")
 
-    cmd = ["arp-scan", "--interface", iface, "--localnet", target]
+    cmd = ["arp-scan", "--interface", iface, target]
     logger.debug("arp-scan command: %s", cmd)
 
     result = subprocess.run(  # noqa: S603 — argv list, no shell injection
