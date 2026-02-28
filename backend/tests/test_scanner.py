@@ -454,3 +454,37 @@ class TestOrchestrateScan:
             orchestrate_scan()
 
         mock_arp.assert_called_once_with(interface="bond0", subnet="172.16.0.0/12")
+
+    @pytest.mark.unit
+    def test_host_timeout_default_in_command(self):
+        """--host-timeout 30s must appear in the nmap command by default."""
+        fixture_xml = _fixture("nmap_two_hosts.xml")
+
+        def fake_run(cmd, **kwargs):
+            idx = cmd.index("-oX")
+            Path(cmd[idx + 1]).write_text(fixture_xml)
+            return MagicMock(returncode=0, stdout="", stderr="")
+
+        with patch("app.scanner.nmap_scan.subprocess.run", side_effect=fake_run) as mock_run:
+            run_nmap_scan(hosts=["192.168.1.1"], interface="eth0")
+
+        cmd = mock_run.call_args[0][0]
+        assert "--host-timeout" in cmd
+        assert cmd[cmd.index("--host-timeout") + 1] == "30s"
+
+    @pytest.mark.unit
+    def test_host_timeout_env_override(self, monkeypatch):
+        """NMAP_HOST_TIMEOUT env var must override the default 30s value."""
+        monkeypatch.setenv("NMAP_HOST_TIMEOUT", "60s")
+        fixture_xml = _fixture("nmap_two_hosts.xml")
+
+        def fake_run(cmd, **kwargs):
+            idx = cmd.index("-oX")
+            Path(cmd[idx + 1]).write_text(fixture_xml)
+            return MagicMock(returncode=0, stdout="", stderr="")
+
+        with patch("app.scanner.nmap_scan.subprocess.run", side_effect=fake_run) as mock_run:
+            run_nmap_scan(hosts=["192.168.1.1"], interface="eth0")
+
+        cmd = mock_run.call_args[0][0]
+        assert cmd[cmd.index("--host-timeout") + 1] == "60s"

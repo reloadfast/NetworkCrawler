@@ -62,6 +62,7 @@ export function DevicesPage() {
   const { devices, loading, error } = useDevices();
   const { risks } = useRisks();
   const [filter, setFilter] = useState("");
+  const [osFilter, setOsFilter] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("ip_address");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
@@ -73,16 +74,25 @@ export function DevicesPage() {
     return counts;
   }, [risks]);
 
+  const osOptions = useMemo(() => {
+    const seen = new Set<string>();
+    for (const d of devices) {
+      if (d.os_guess) seen.add(d.os_guess);
+    }
+    return Array.from(seen).sort();
+  }, [devices]);
+
   const filtered = useMemo(() => {
     const q = filter.toLowerCase();
     return devices.filter(
       (d) =>
-        d.ip_address.includes(q) ||
-        (d.hostname ?? "").toLowerCase().includes(q) ||
-        (d.mac_address ?? "").toLowerCase().includes(q) ||
-        (d.os_guess ?? "").toLowerCase().includes(q),
+        (d.ip_address.includes(q) ||
+          (d.hostname ?? "").toLowerCase().includes(q) ||
+          (d.mac_address ?? "").toLowerCase().includes(q) ||
+          (d.os_guess ?? "").toLowerCase().includes(q)) &&
+        (osFilter === "" || d.os_guess === osFilter),
     );
-  }, [devices, filter]);
+  }, [devices, filter, osFilter]);
 
   const sorted = useMemo(
     () => sortDevices(filtered, riskCounts, sortKey, sortDir),
@@ -111,14 +121,31 @@ export function DevicesPage() {
             : undefined
         }
         action={
-          <input
-            type="search"
-            placeholder="Filter by IP, hostname, OS…"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            aria-label="Filter devices"
-            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent-primary)] sm:w-64"
-          />
+          <div className="flex flex-wrap gap-2">
+            <input
+              type="search"
+              placeholder="Filter by IP, hostname, OS…"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              aria-label="Filter devices"
+              className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent-primary)] sm:w-56"
+            />
+            {osOptions.length > 0 && (
+              <select
+                value={osFilter}
+                onChange={(e) => setOsFilter(e.target.value)}
+                aria-label="Filter by OS"
+                className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent-primary)]"
+              >
+                <option value="">All OS</option>
+                {osOptions.map((os) => (
+                  <option key={os} value={os}>
+                    {os}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         }
       />
 
