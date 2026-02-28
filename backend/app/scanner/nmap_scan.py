@@ -64,7 +64,9 @@ def run_nmap_scan(
         cmd = [
             "nmap",
             "-sV",  # service/version detection
-            "-O",  # OS detection (best-effort)
+            # -O (OS detection) intentionally omitted: nmap hard-codes geteuid()==0
+            # for OS fingerprinting regardless of file capabilities, so it always
+            # quits when running as non-root uid 1000.  os_guess will be empty.
             "--top-ports",
             "1000",
             "-e",

@@ -271,6 +271,24 @@ class TestRunNmapScan:
     """run_nmap_scan() mocks subprocess.run; XML writing verified via fixture."""
 
     @pytest.mark.unit
+    def test_does_not_use_os_detection_flag(self):
+        """-O must not appear in the nmap command: it hard-codes geteuid()==0 and
+        always quits when running as non-root uid 1000, regardless of file caps."""
+        fixture_xml = _fixture("nmap_two_hosts.xml")
+
+        def fake_run(cmd, **kwargs):
+            idx = cmd.index("-oX")
+            Path(cmd[idx + 1]).write_text(fixture_xml)
+            return MagicMock(returncode=0, stdout="", stderr="")
+
+        with patch("app.scanner.nmap_scan.subprocess.run", side_effect=fake_run) as mock_run:
+            run_nmap_scan(hosts=["192.168.1.1"], interface="eth0")
+
+        cmd = mock_run.call_args[0][0]
+        assert "-O" not in cmd
+        assert "-sV" in cmd
+
+    @pytest.mark.unit
     def test_returns_empty_list_for_empty_hosts(self):
         assert run_nmap_scan(hosts=[]) == []
 
