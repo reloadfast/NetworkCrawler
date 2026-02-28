@@ -2,14 +2,14 @@
  * DashboardPage — summary cards, last scan info, and quick-trigger button.
  * Route: /
  */
-import React, { useState } from 'react'
+import React, { memo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Card, Badge, ScanBanner, ToastContainer } from '../components'
+import { Card, Badge, ScanBanner, ToastContainer, SkeletonCard } from '../components'
 import { useDevices, useScans, useTriggerScan, useRiskSummary } from '../hooks'
 import { useScanStatus } from '../hooks/useScanStatus'
 import { useToast } from '../hooks/useToast'
 
-function StatCard({ label, value, sub }: { label: string; value: React.ReactNode; sub?: string }) {
+const StatCard = memo(function StatCard({ label, value, sub }: { label: string; value: React.ReactNode; sub?: string }) {
   return (
     <Card>
       <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-[var(--color-text-secondary)]">
@@ -19,7 +19,7 @@ function StatCard({ label, value, sub }: { label: string; value: React.ReactNode
       {sub && <p className="mt-1 text-xs text-[var(--color-text-secondary)]">{sub}</p>}
     </Card>
   )
-}
+})
 
 export function DashboardPage() {
   const { devices, loading: devLoading } = useDevices()
@@ -71,7 +71,11 @@ export function DashboardPage() {
       </div>
 
       {loading ? (
-        <p className="text-[var(--color-text-secondary)]">Loading…</p>
+        <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SkeletonCard key={i} height="24" />
+          ))}
+        </div>
       ) : (
         <>
           {/* Summary cards */}

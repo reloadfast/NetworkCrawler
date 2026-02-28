@@ -138,6 +138,7 @@ export function DevicesPage() {
                   ).map(([key, label]) => (
                     <th
                       key={key}
+                      scope="col"
                       className="cursor-pointer select-none px-4 py-3 hover:text-[var(--color-text-primary)]"
                       onClick={() => handleSort(key)}
                       aria-sort={

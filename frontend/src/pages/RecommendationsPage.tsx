@@ -2,7 +2,7 @@
  * RecommendationsPage — sortable list of all hardening recommendations.
  * Route: /recommendations
  */
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, Badge, SkeletonCard } from '../components'
 import { useRecommendations } from '../hooks'
@@ -111,7 +111,7 @@ export function RecommendationsPage() {
   )
 }
 
-function RecommendationRow({ rec }: { rec: Recommendation }) {
+const RecommendationRow = memo(function RecommendationRow({ rec }: { rec: Recommendation }) {
   return (
     <Card role="listitem">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -145,4 +145,4 @@ function RecommendationRow({ rec }: { rec: Recommendation }) {
       </div>
     </Card>
   )
-}
+})

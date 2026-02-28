@@ -2,12 +2,48 @@
  * DeviceDetailPage — ports/services table, risk list, timestamps.
  * Route: /devices/:id
  */
+import { memo } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Card, Badge } from '../components'
+import { Card, Badge, SkeletonCard } from '../components'
 import { useDevice, useRisks, useDeviceRecommendations } from '../hooks'
-import type { Severity } from '../types/api'
+import type { Risk, Recommendation, Severity } from '../types/api'
 
 const SEV_ORDER: Severity[] = ['critical', 'high', 'medium', 'low']
+
+const RiskCard = memo(function RiskCard({ risk }: { risk: Risk }) {
+  return (
+    <Card>
+      <div className="mb-2 flex flex-wrap items-center gap-3">
+        <Badge variant={risk.severity}>{risk.severity}</Badge>
+        <span className="font-medium">{risk.title}</span>
+      </div>
+      <p className="text-sm text-[var(--color-text-secondary)]">{risk.description}</p>
+      <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
+        Check: <span className="font-mono">{risk.check_id}</span>
+        {risk.detected_at && (
+          <> &middot; Detected {new Date(risk.detected_at).toLocaleString()}</>
+        )}
+      </p>
+    </Card>
+  )
+})
+
+const RecCard = memo(function RecCard({ rec }: { rec: Recommendation }) {
+  return (
+    <Card>
+      <div className="mb-1 flex flex-wrap items-center gap-2">
+        <Badge variant={rec.severity}>{rec.severity}</Badge>
+        <Link
+          to={`/recommendations/${rec.id}`}
+          className="font-medium hover:underline text-[var(--color-text-primary)]"
+        >
+          {rec.title}
+        </Link>
+      </div>
+      <p className="text-sm text-[var(--color-text-secondary)]">{rec.description}</p>
+    </Card>
+  )
+})
 
 export function DeviceDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -16,7 +52,7 @@ export function DeviceDetailPage() {
   const { risks, loading: risksLoading } = useRisks({ deviceId })
   const { recommendations, loading: recsLoading } = useDeviceRecommendations(deviceId)
 
-  if (loading) return <p className="text-[var(--color-text-secondary)]">Loading…</p>
+  if (loading) return <SkeletonCard height="48" />
   if (error) return <p className="text-[var(--color-accent-danger)]">Error: {error}</p>
   if (!device) return <p className="text-[var(--color-text-secondary)]">Device not found.</p>
 
@@ -70,10 +106,10 @@ export function DeviceDetailPage() {
             <table className="w-full text-sm" aria-label="Open ports table">
               <thead>
                 <tr className="border-b border-[var(--color-border)] text-left text-xs uppercase tracking-wider text-[var(--color-text-secondary)]">
-                  <th className="px-4 py-3">Port</th>
-                  <th className="px-4 py-3">Protocol</th>
-                  <th className="px-4 py-3">Service</th>
-                  <th className="px-4 py-3">Banner</th>
+                  <th scope="col" className="px-4 py-3">Port</th>
+                  <th scope="col" className="px-4 py-3">Protocol</th>
+                  <th scope="col" className="px-4 py-3">Service</th>
+                  <th scope="col" className="px-4 py-3">Banner</th>
                 </tr>
               </thead>
               <tbody>
@@ -108,7 +144,11 @@ export function DeviceDetailPage() {
         )}
       </h2>
       {risksLoading ? (
-        <p className="text-[var(--color-text-secondary)]">Loading risks…</p>
+        <div className="flex flex-col gap-3">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <SkeletonCard key={i} height="20" />
+          ))}
+        </div>
       ) : sortedRisks.length === 0 ? (
         <Card>
           <p className="py-4 text-center text-sm text-[var(--color-text-secondary)]">
@@ -118,19 +158,7 @@ export function DeviceDetailPage() {
       ) : (
         <div className="flex flex-col gap-3">
           {sortedRisks.map((risk) => (
-            <Card key={risk.id}>
-              <div className="mb-2 flex flex-wrap items-center gap-3">
-                <Badge variant={risk.severity}>{risk.severity}</Badge>
-                <span className="font-medium">{risk.title}</span>
-              </div>
-              <p className="text-sm text-[var(--color-text-secondary)]">{risk.description}</p>
-              <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-                Check: <span className="font-mono">{risk.check_id}</span>
-                {risk.detected_at && (
-                  <> &middot; Detected {new Date(risk.detected_at).toLocaleString()}</>
-                )}
-              </p>
-            </Card>
+            <RiskCard key={risk.id} risk={risk} />
           ))}
         </div>
       )}
@@ -145,7 +173,11 @@ export function DeviceDetailPage() {
         )}
       </h2>
       {recsLoading ? (
-        <p className="text-[var(--color-text-secondary)]">Loading recommendations…</p>
+        <div className="flex flex-col gap-3">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <SkeletonCard key={i} height="20" />
+          ))}
+        </div>
       ) : recommendations.length === 0 ? (
         <Card>
           <p className="py-4 text-center text-sm text-[var(--color-text-secondary)]">
@@ -155,18 +187,7 @@ export function DeviceDetailPage() {
       ) : (
         <div className="flex flex-col gap-3">
           {recommendations.map((rec) => (
-            <Card key={rec.id}>
-              <div className="mb-1 flex flex-wrap items-center gap-2">
-                <Badge variant={rec.severity}>{rec.severity}</Badge>
-                <Link
-                  to={`/recommendations/${rec.id}`}
-                  className="font-medium hover:underline text-[var(--color-text-primary)]"
-                >
-                  {rec.title}
-                </Link>
-              </div>
-              <p className="text-sm text-[var(--color-text-secondary)]">{rec.description}</p>
-            </Card>
+            <RecCard key={rec.id} rec={rec} />
           ))}
         </div>
       )}
