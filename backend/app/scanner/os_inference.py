@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import re
 
-from app.scanner.nmap_scan import NmapHost, PortInfo
+from app.scanner.nmap_scan import NmapHost
 
 # ── SSH banner patterns ───────────────────────────────────────────────────────
 # OpenSSH embeds OS/distro hints in the version comment field, e.g.

@@ -9,11 +9,9 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pytest
-
 from app.scanner.dns_lookup import resolve_hostnames
 from app.scanner.nmap_scan import NmapHost, PortInfo
 from app.scanner.os_inference import enrich_os_guesses, infer_os
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # os_inference — infer_os()
@@ -23,14 +21,30 @@ from app.scanner.os_inference import enrich_os_guesses, infer_os
 def _host_with_ssh(banner: str) -> NmapHost:
     return NmapHost(
         ip="192.168.1.1",
-        ports=[PortInfo(port_number=22, protocol="tcp", state="open", service_name="ssh", version_banner=banner)],
+        ports=[
+            PortInfo(
+                port_number=22,
+                protocol="tcp",
+                state="open",
+                service_name="ssh",
+                version_banner=banner,
+            )
+        ],
     )
 
 
 def _host_with_http(banner: str) -> NmapHost:
     return NmapHost(
         ip="192.168.1.1",
-        ports=[PortInfo(port_number=80, protocol="tcp", state="open", service_name="http", version_banner=banner)],
+        ports=[
+            PortInfo(
+                port_number=80,
+                protocol="tcp",
+                state="open",
+                service_name="http",
+                version_banner=banner,
+            )
+        ],
     )
 
 
@@ -71,7 +85,15 @@ class TestInferOs:
     def test_windows_smb_service(self):
         host = NmapHost(
             ip="192.168.1.1",
-            ports=[PortInfo(port_number=445, protocol="tcp", state="open", service_name="microsoft-ds", version_banner="")],
+            ports=[
+                PortInfo(
+                    port_number=445,
+                    protocol="tcp",
+                    state="open",
+                    service_name="microsoft-ds",
+                    version_banner="",
+                )
+            ],
         )
         assert infer_os(host) == "Windows"
 
@@ -89,8 +111,20 @@ class TestInferOs:
         host = NmapHost(
             ip="192.168.1.1",
             ports=[
-                PortInfo(port_number=22, protocol="tcp", state="open", service_name="ssh", version_banner="OpenSSH 8.9p1 Ubuntu-3"),
-                PortInfo(port_number=80, protocol="tcp", state="open", service_name="http", version_banner="OpenWrt/uhttpd"),
+                PortInfo(
+                    port_number=22,
+                    protocol="tcp",
+                    state="open",
+                    service_name="ssh",
+                    version_banner="OpenSSH 8.9p1 Ubuntu-3",
+                ),
+                PortInfo(
+                    port_number=80,
+                    protocol="tcp",
+                    state="open",
+                    service_name="http",
+                    version_banner="OpenWrt/uhttpd",
+                ),
             ],
         )
         assert infer_os(host) == "Linux (Ubuntu)"
@@ -131,7 +165,10 @@ class TestResolveHostnames:
     @pytest.mark.unit
     def test_fills_missing_hostname_via_rdns(self):
         host = NmapHost(ip="192.168.1.1", hostname="")
-        with patch("app.scanner.dns_lookup.socket.gethostbyaddr", return_value=("router.local", [], ["192.168.1.1"])):
+        with patch(
+            "app.scanner.dns_lookup.socket.gethostbyaddr",
+            return_value=("router.local", [], ["192.168.1.1"]),
+        ):
             resolve_hostnames([host])
         assert host.hostname == "router.local"
 
@@ -161,7 +198,10 @@ class TestResolveHostnames:
     def test_only_queries_hosts_without_hostname(self):
         h1 = NmapHost(ip="192.168.1.1", hostname="existing.local")
         h2 = NmapHost(ip="192.168.1.2", hostname="")
-        with patch("app.scanner.dns_lookup.socket.gethostbyaddr", return_value=("resolved.local", [], [])) as mock_dns:
+        with patch(
+            "app.scanner.dns_lookup.socket.gethostbyaddr",
+            return_value=("resolved.local", [], []),
+        ) as mock_dns:
             resolve_hostnames([h1, h2])
         mock_dns.assert_called_once_with("192.168.1.2")
         assert h2.hostname == "resolved.local"
