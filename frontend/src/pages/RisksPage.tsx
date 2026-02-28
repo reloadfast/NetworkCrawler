@@ -75,7 +75,7 @@ function RiskModal({ risk, onClose }: { risk: Risk; onClose: () => void }) {
                 className="text-[var(--color-accent-positive)] hover:underline"
                 onClick={onClose}
               >
-                Device #{risk.device_id}
+                {risk.hostname || risk.ip_address}
               </Link>
             </dd>
           </div>
@@ -230,7 +230,7 @@ export function RisksPage() {
         <Card padding="none">
           <div className="divide-y divide-[var(--color-border)]">
             {risks.map((risk) => {
-              const device = devices.find((d) => d.id === risk.device_id);
+              const deviceLabel = risk.hostname || risk.ip_address;
               return (
                 <button
                   key={risk.id}
@@ -242,9 +242,13 @@ export function RisksPage() {
                   <span className="flex-1 text-sm font-medium">
                     {risk.title}
                   </span>
-                  <span className="text-xs text-[var(--color-text-secondary)]">
-                    {device ? device.ip_address : `Device #${risk.device_id}`}
-                  </span>
+                  <Link
+                    to={`/devices/${risk.device_id}`}
+                    className="text-xs text-[var(--color-accent-positive)] hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {deviceLabel}
+                  </Link>
                   <span className="text-xs text-[var(--color-text-secondary)]">
                     {risk.detected_at
                       ? new Date(risk.detected_at).toLocaleDateString()

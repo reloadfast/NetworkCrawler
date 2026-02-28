@@ -44,6 +44,8 @@ export type Severity = "critical" | "high" | "medium" | "low";
 export interface Risk {
   id: number;
   device_id: number;
+  ip_address: string;
+  hostname: string | null;
   severity: Severity;
   check_id: string;
   title: string;

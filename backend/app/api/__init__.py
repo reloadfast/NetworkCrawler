@@ -147,6 +147,8 @@ def _scan_to_out(s) -> ScanOut:  # noqa: ANN001 — SQLAlchemy instance
 class RiskOut(BaseModel):
     id: int
     device_id: int
+    ip_address: str
+    hostname: str | None
     severity: str
     check_id: str
     title: str
@@ -179,7 +181,7 @@ def list_risks(
     from app.models.risk import Risk
 
     severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-    stmt = select(Risk)
+    stmt = select(Risk).options(selectinload(Risk.device))
     if severity is not None:
         stmt = stmt.where(Risk.severity == severity)
     if device_id is not None:
@@ -215,7 +217,7 @@ def get_risk(risk_id: int, db: Annotated[Session, Depends(get_db)]) -> RiskOut:
     """Return a single risk by ID."""
     from app.models.risk import Risk
 
-    stmt = select(Risk).where(Risk.id == risk_id)
+    stmt = select(Risk).options(selectinload(Risk.device)).where(Risk.id == risk_id)
     risk = db.execute(stmt).scalar_one_or_none()
     if risk is None:
         raise HTTPException(status_code=404, detail="Risk not found")
@@ -231,7 +233,7 @@ def device_risks(device_id: int, db: Annotated[Session, Depends(get_db)]) -> lis
     device = db.execute(select(Device).where(Device.id == device_id)).scalar_one_or_none()
     if device is None:
         raise HTTPException(status_code=404, detail="Device not found")
-    stmt = select(Risk).where(Risk.device_id == device_id)
+    stmt = select(Risk).options(selectinload(Risk.device)).where(Risk.device_id == device_id)
     risks = db.execute(stmt).scalars().all()
     return [_risk_to_out(r) for r in risks]
 
@@ -240,6 +242,8 @@ def _risk_to_out(r) -> RiskOut:  # noqa: ANN001 — SQLAlchemy instance
     return RiskOut(
         id=r.id,
         device_id=r.device_id,
+        ip_address=r.device.ip_address,
+        hostname=r.device.hostname,
         severity=r.severity,
         check_id=r.check_id,
         title=r.title,

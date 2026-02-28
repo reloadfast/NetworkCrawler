@@ -292,11 +292,24 @@ def test_risk_schema_fields(client, seeded_risk):
     risk = next(r for r in response.json() if r["id"] == seeded_risk["risk_id"])
     assert "id" in risk
     assert "device_id" in risk
+    assert "ip_address" in risk
+    assert "hostname" in risk
     assert "severity" in risk
     assert "check_id" in risk
     assert "title" in risk
     assert "description" in risk
     assert "detected_at" in risk
+
+
+@pytest.mark.integration
+def test_risk_includes_device_identity(client, seeded_db, seeded_risk):
+    """Risk response must include ip_address and hostname from the linked device."""
+    response = client.get("/api/risks")
+    risk = next(r for r in response.json() if r["id"] == seeded_risk["risk_id"])
+    # seeded_db device has ip_address="10.0.0.1"
+    assert risk["ip_address"] == "10.0.0.1"
+    # hostname is nullable; assert the key is present with the correct type
+    assert risk["hostname"] is None or isinstance(risk["hostname"], str)
 
 
 @pytest.mark.integration
