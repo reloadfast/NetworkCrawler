@@ -1,6 +1,15 @@
 """Device and Port SQLAlchemy ORM models."""
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import relationship
 
 from app.db import Base
@@ -21,6 +30,7 @@ class Device(Base):
     vendor = Column(String, nullable=True)  # hardware vendor from arp-scan OUI lookup
     hostname = Column(String, nullable=True)
     os_guess = Column(String, nullable=True)
+    trusted = Column(Boolean, nullable=False, default=False, server_default="0")
     first_seen = Column(DateTime, default=func.now())
     last_seen = Column(DateTime, default=func.now(), onupdate=func.now())
 

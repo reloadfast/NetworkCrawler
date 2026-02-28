@@ -196,7 +196,13 @@ export function DashboardPage() {
 
   return (
     <div className="page-enter">
-      {isRunning && <ScanBanner scanId={activeScanId} />}
+      {isRunning && (
+        <ScanBanner
+          scanId={activeScanId}
+          currentStage={runningScan?.current_stage}
+          startedAt={runningScan?.started_at}
+        />
+      )}
 
       <PageHeader title="Dashboard" action={triggerButton} />
 

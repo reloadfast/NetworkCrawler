@@ -44,6 +44,15 @@ def run_checks(db: Session, device_id: int) -> list[Risk]:
         logger.warning("run_checks: device %d not found", device_id)
         return []
 
+    # Trusted devices are acknowledged — clear any existing risks and skip checks
+    existing_stmt = select(Risk).where(Risk.device_id == device_id)
+    existing = db.execute(existing_stmt).scalars().all()
+    if device.trusted:
+        for risk in existing:
+            db.delete(risk)
+        logger.debug("Device %d is trusted — skipping checks and clearing risks", device_id)
+        return []
+
     # Collect findings from all checks
     all_findings: list[RiskData] = []
     for check_fn in ALL_CHECKS:
@@ -55,19 +64,9 @@ def run_checks(db: Session, device_id: int) -> list[Risk]:
             )
 
     # Build a set of check_ids that fired so we can delete stale entries
-    fired_ids = {rd.check_id for rd in all_findings}
-
-    # Delete existing Risk rows for this device that are about to be replaced
-    existing_stmt = select(Risk).where(Risk.device_id == device_id)
-    existing = db.execute(existing_stmt).scalars().all()
+    # Delete existing Risk rows for this device (replace fired ones, remove resolved ones)
     for risk in existing:
-        if risk.check_id in fired_ids:
-            db.delete(risk)
-
-    # Also delete resolved risks (check fired before but not now)
-    for risk in existing:
-        if risk.check_id not in fired_ids:
-            db.delete(risk)
+        db.delete(risk)
 
     db.flush()
 

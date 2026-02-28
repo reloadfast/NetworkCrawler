@@ -2,7 +2,7 @@
  * DeviceDetailPage — ports/services table, risk list, timestamps.
  * Route: /devices/:id
  */
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Card, Badge, SkeletonCard, PageHeader } from "../components";
 import { useDevice, useRisks, useDeviceRecommendations } from "../hooks";
@@ -76,10 +76,11 @@ const RiskRecPair = memo(function RiskRecPair({
 export function DeviceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const deviceId = Number(id);
-  const { device, loading, error } = useDevice(deviceId);
+  const { device, loading, error, refetch } = useDevice(deviceId);
   const { risks, loading: risksLoading } = useRisks({ deviceId });
   const { recommendations, loading: recsLoading } =
     useDeviceRecommendations(deviceId);
+  const [togglingTrust, setTogglingTrust] = useState(false);
 
   // Build a map of risk_id → recommendation for O(1) lookup
   const recByRiskId = useMemo(() => {
@@ -107,6 +108,21 @@ export function DeviceDetailPage() {
     (a, b) => SEV_ORDER.indexOf(a.severity) - SEV_ORDER.indexOf(b.severity),
   );
 
+  const handleToggleTrust = () => {
+    setTogglingTrust(true);
+    fetch(`/api/devices/${deviceId}/trusted`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ trusted: !device.trusted }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      })
+      .then(() => refetch())
+      .catch(() => {})
+      .finally(() => setTogglingTrust(false));
+  };
+
   return (
     <div>
       <div className="mb-1 flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
@@ -124,6 +140,32 @@ export function DeviceDetailPage() {
       <PageHeader
         title={device.ip_address}
         subtitle={device.hostname ?? undefined}
+        action={
+          <div className="flex items-center gap-3">
+            {device.trusted && (
+              <Badge variant="neutral" className="gap-1">
+                🛡 Trusted
+              </Badge>
+            )}
+            <button
+              onClick={handleToggleTrust}
+              disabled={togglingTrust}
+              className={[
+                "rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors",
+                "focus:outline-none focus:ring-1 focus:ring-[var(--color-accent-primary)]",
+                device.trusted
+                  ? "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent-danger)] hover:text-[var(--color-accent-danger)]"
+                  : "border-[var(--color-accent-primary)]/40 text-[var(--color-accent-primary)] hover:bg-[var(--color-accent-primary)]/10",
+              ].join(" ")}
+            >
+              {togglingTrust
+                ? "…"
+                : device.trusted
+                  ? "Untrust device"
+                  : "Mark as trusted"}
+            </button>
+          </div>
+        }
       />
 
       {/* Device metadata */}
