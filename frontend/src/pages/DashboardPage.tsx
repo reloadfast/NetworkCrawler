@@ -4,8 +4,10 @@
  */
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Card, Badge } from '../components'
+import { Card, Badge, ScanBanner, ToastContainer } from '../components'
 import { useDevices, useScans, useTriggerScan, useRiskSummary } from '../hooks'
+import { useScanStatus } from '../hooks/useScanStatus'
+import { useToast } from '../hooks/useToast'
 
 function StatCard({ label, value, sub }: { label: string; value: React.ReactNode; sub?: string }) {
   return (
@@ -24,37 +26,48 @@ export function DashboardPage() {
   const { scans, loading: scanLoading, refetch: refetchScans } = useScans()
   const { summary, loading: summaryLoading } = useRiskSummary()
   const { trigger, loading: triggering } = useTriggerScan()
-  const [triggerMsg, setTriggerMsg] = useState<string | null>(null)
+  const { isRunning, latestScan: runningScan } = useScanStatus()
+  const { toasts, addToast, dismissToast } = useToast()
+  const [scanStartedId, setScanStartedId] = useState<number | null>(null)
 
   const lastScan = scans[0] ?? null
+  const loading = devLoading || scanLoading || summaryLoading
 
   const handleTrigger = async () => {
-    setTriggerMsg(null)
     const result = await trigger()
     if (result) {
-      setTriggerMsg(`Scan #${result.scan_id ?? '?'} started`)
+      setScanStartedId(result.scan_id ?? null)
+      addToast(`Scan #${result.scan_id ?? '?'} started`, 'info')
       refetchScans()
+    } else {
+      addToast('Failed to trigger scan', 'error')
     }
   }
 
-  const loading = devLoading || scanLoading || summaryLoading
+  // Show active scan id in banner: prefer the one just triggered, fall back to running scan
+  const activeScanId = scanStartedId ?? (isRunning ? (runningScan?.id ?? null) : null)
 
   return (
-    <div>
+    <div className="page-enter">
+      {/* Scan-in-progress banner */}
+      {isRunning && <ScanBanner scanId={activeScanId} />}
+
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <div className="flex items-center gap-3">
-          {triggerMsg && (
-            <span className="text-sm text-[var(--color-accent-positive)]">{triggerMsg}</span>
+        <button
+          onClick={handleTrigger}
+          disabled={triggering || isRunning}
+          aria-label={triggering || isRunning ? 'Scan in progress' : 'Trigger a new scan'}
+          className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-sm font-medium text-[var(--color-text-primary)] transition-colors duration-150 hover:border-[var(--color-accent-positive)] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {(triggering || isRunning) && (
+            <span
+              className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
+              aria-hidden="true"
+            />
           )}
-          <button
-            onClick={handleTrigger}
-            disabled={triggering}
-            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-sm font-medium text-[var(--color-text-primary)] transition-colors duration-150 hover:border-[var(--color-accent-positive)] disabled:opacity-50"
-          >
-            {triggering ? 'Scanning…' : 'Trigger Scan'}
-          </button>
-        </div>
+          {triggering ? 'Starting…' : isRunning ? 'Scanning…' : 'Trigger Scan'}
+        </button>
       </div>
 
       {loading ? (
@@ -137,6 +150,9 @@ export function DashboardPage() {
           </div>
         </>
       )}
+
+      {/* Toast notifications */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   )
 }

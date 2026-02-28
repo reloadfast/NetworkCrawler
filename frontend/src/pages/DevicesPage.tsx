@@ -4,7 +4,7 @@
  */
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Card, Badge } from '../components'
+import { Card, Badge, SkeletonTable } from '../components'
 import { useDevices, useRisks } from '../hooks'
 import type { Device } from '../types/api'
 
@@ -109,7 +109,7 @@ export function DevicesPage() {
         />
       </div>
 
-      {loading && <p className="text-[var(--color-text-secondary)]">Loading…</p>}
+      {loading && <SkeletonTable rows={6} />}
       {error && <p className="text-[var(--color-accent-danger)]">Error: {error}</p>}
 
       {!loading && !error && devices.length === 0 && (

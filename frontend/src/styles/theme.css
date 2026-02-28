@@ -21,6 +21,11 @@
   --color-accent-positive: #10b981; /* Emerald — healthy, no issues */
   --color-accent-warning: #f59e0b; /* Amber — medium risk */
   --color-accent-danger: #ef4444; /* Red — critical / high risk */
+  --color-accent-primary: #3b82f6; /* Blue — primary action / info */
+  --color-accent-caution: #f97316; /* Orange — caution */
+  --color-accent-info: #6366f1; /* Indigo — informational */
+  --color-skeleton: #e2e8f0; /* Skeleton loader base */
+  --color-skeleton-shine: #f1f5f9; /* Skeleton shimmer highlight */
 }
 
 [data-theme="dark"] {
@@ -32,6 +37,11 @@
   --color-accent-positive: #34d399;
   --color-accent-warning: #fbbf24;
   --color-accent-danger: #f87171;
+  --color-accent-primary: #60a5fa;
+  --color-accent-caution: #fb923c;
+  --color-accent-info: #818cf8;
+  --color-skeleton: #334155;
+  --color-skeleton-shine: #475569;
 }
 
 *,
@@ -50,3 +60,45 @@ body {
     -apple-system,
     sans-serif;
 }
+
+/* ── Skeleton shimmer ─────────────────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-skeleton) 25%,
+    var(--color-skeleton-shine) 50%,
+    var(--color-skeleton) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 0.375rem;
+}
+
+/* ── Route transition ─────────────────────────────────────────────────────── */
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.page-enter {
+  animation: fadeSlideIn 0.18s ease-out both;
+}
+
+/* ── Toast ────────────────────────────────────────────────────────────────── */
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes toastOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+.toast-enter  { animation: toastIn  0.22s ease-out both; }
+.toast-exit   { animation: toastOut 0.22s ease-in  both; }
