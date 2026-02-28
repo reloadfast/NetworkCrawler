@@ -4,7 +4,7 @@
  */
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Card, Badge } from '../components'
+import { Card, Badge, SkeletonCard } from '../components'
 import { useRecommendations } from '../hooks'
 import type { Recommendation, Severity } from '../types/api'
 
@@ -59,7 +59,14 @@ export function RecommendationsPage() {
     })
   }, [recommendations, sortKey])
 
-  if (loading) return <p className="text-[var(--color-text-secondary)]">Loading…</p>
+  if (loading)
+    return (
+      <div className="flex flex-col gap-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <SkeletonCard key={i} height="24" />
+        ))}
+      </div>
+    )
   if (error) return <p className="text-[var(--color-accent-danger)]">Error: {error}</p>
 
   return (

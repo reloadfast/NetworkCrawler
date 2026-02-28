@@ -4,7 +4,7 @@
  */
 import React, { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Card, Badge, ProgressBar } from '../components'
+import { Card, Badge, ProgressBar, SkeletonCard } from '../components'
 import { useRisks, useRiskSummary, useDevices } from '../hooks'
 import type { Risk, Severity } from '../types/api'
 
@@ -162,7 +162,13 @@ export function RisksPage() {
       </div>
 
       {/* Risk list */}
-      {loading && <p className="text-[var(--color-text-secondary)]">Loading…</p>}
+      {loading && (
+        <div className="flex flex-col gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SkeletonCard key={i} height="16" />
+          ))}
+        </div>
+      )}
       {error && <p className="text-[var(--color-accent-danger)]">Error: {error}</p>}
 
       {!loading && !error && risks.length === 0 && (

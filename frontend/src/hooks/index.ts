@@ -17,3 +17,8 @@ export type {
   UseRecommendationsOptions,
   UseDeviceRecommendationsResult,
 } from './useRecommendations'
+
+export { useScanStatus } from './useScanStatus'
+export type { UseScanStatusResult } from './useScanStatus'
+
+export { useToast } from './useToast'

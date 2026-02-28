@@ -51,7 +51,9 @@ export function Layout() {
         </div>
       </header>
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-        <Outlet />
+        <div className="page-enter">
+          <Outlet />
+        </div>
       </main>
     </div>
   )
