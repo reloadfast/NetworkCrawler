@@ -31,7 +31,11 @@ interface BarChartProps {
   height?: number;
 }
 
-function BarChart({ data, color = "var(--color-accent-primary)", height = 120 }: BarChartProps) {
+function BarChart({
+  data,
+  color = "var(--color-accent-primary)",
+  height = 120,
+}: BarChartProps) {
   const max = Math.max(...data.map((d) => d.value), 1);
   const barW = Math.max(8, Math.floor(320 / Math.max(data.length, 1)) - 4);
   const svgW = data.length * (barW + 4) + 4;
@@ -51,7 +55,15 @@ function BarChart({ data, color = "var(--color-accent-primary)", height = 120 }:
           const y = height - barH;
           return (
             <g key={i}>
-              <rect x={x} y={y} width={barW} height={barH} fill={color} rx={2} opacity={0.85}>
+              <rect
+                x={x}
+                y={y}
+                width={barW}
+                height={barH}
+                fill={color}
+                rx={2}
+                opacity={0.85}
+              >
                 <title>{`${d.label}: ${d.value} devices`}</title>
               </rect>
               <text
@@ -77,7 +89,13 @@ type SevKey = "critical" | "high" | "medium" | "low";
 const SEV_KEYS: SevKey[] = ["critical", "high", "medium", "low"];
 
 interface StackedBarChartProps {
-  data: { label: string; critical: number; high: number; medium: number; low: number }[];
+  data: {
+    label: string;
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  }[];
   height?: number;
 }
 
@@ -143,7 +161,10 @@ function SevLegend() {
   return (
     <div className="mt-2 flex flex-wrap gap-3">
       {SEV_KEYS.map((sev) => (
-        <span key={sev} className="flex items-center gap-1 text-xs text-[var(--color-text-secondary)]">
+        <span
+          key={sev}
+          className="flex items-center gap-1 text-xs text-[var(--color-text-secondary)]"
+        >
           <span
             className="inline-block h-2.5 w-2.5 rounded-sm"
             style={{ background: SEV_COLORS[sev] }}
@@ -207,7 +228,9 @@ export function HistoryPage() {
           <SkeletonCard height="32" />
         </div>
       )}
-      {error && <p className="text-[var(--color-accent-danger)]">Error: {error}</p>}
+      {error && (
+        <p className="text-[var(--color-accent-danger)]">Error: {error}</p>
+      )}
 
       {!loading && !error && completed.length === 0 && (
         <Card>
@@ -254,25 +277,44 @@ export function HistoryPage() {
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border)]">
                   {[...scans].map((s) => (
-                    <tr key={s.id} className="hover:bg-[var(--color-background)]">
+                    <tr
+                      key={s.id}
+                      className="hover:bg-[var(--color-background)]"
+                    >
                       <td className="px-4 py-2 text-[var(--color-text-secondary)]">
                         {shortDate(s.started_at)}
                       </td>
                       <td className="px-4 py-2 capitalize">{s.triggered_by}</td>
                       <td className="px-4 py-2 text-[var(--color-text-secondary)]">
-                        {s.duration_seconds != null ? `${s.duration_seconds}s` : "—"}
+                        {s.duration_seconds != null
+                          ? `${s.duration_seconds}s`
+                          : "—"}
                       </td>
-                      <td className="px-4 py-2 text-right">{s.devices_found ?? "—"}</td>
-                      <td className="px-4 py-2 text-right" style={{ color: SEV_COLORS.critical }}>
+                      <td className="px-4 py-2 text-right">
+                        {s.devices_found ?? "—"}
+                      </td>
+                      <td
+                        className="px-4 py-2 text-right"
+                        style={{ color: SEV_COLORS.critical }}
+                      >
                         {s.risks_critical ?? "—"}
                       </td>
-                      <td className="px-4 py-2 text-right" style={{ color: SEV_COLORS.high }}>
+                      <td
+                        className="px-4 py-2 text-right"
+                        style={{ color: SEV_COLORS.high }}
+                      >
                         {s.risks_high ?? "—"}
                       </td>
-                      <td className="px-4 py-2 text-right" style={{ color: SEV_COLORS.medium }}>
+                      <td
+                        className="px-4 py-2 text-right"
+                        style={{ color: SEV_COLORS.medium }}
+                      >
                         {s.risks_medium ?? "—"}
                       </td>
-                      <td className="px-4 py-2 text-right" style={{ color: SEV_COLORS.low }}>
+                      <td
+                        className="px-4 py-2 text-right"
+                        style={{ color: SEV_COLORS.low }}
+                      >
                         {s.risks_low ?? "—"}
                       </td>
                     </tr>
