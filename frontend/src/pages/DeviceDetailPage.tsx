@@ -4,7 +4,7 @@
  */
 import { Link, useParams } from 'react-router-dom'
 import { Card, Badge } from '../components'
-import { useDevice, useRisks } from '../hooks'
+import { useDevice, useRisks, useDeviceRecommendations } from '../hooks'
 import type { Severity } from '../types/api'
 
 const SEV_ORDER: Severity[] = ['critical', 'high', 'medium', 'low']
@@ -14,6 +14,7 @@ export function DeviceDetailPage() {
   const deviceId = Number(id)
   const { device, loading, error } = useDevice(deviceId)
   const { risks, loading: risksLoading } = useRisks({ deviceId })
+  const { recommendations, loading: recsLoading } = useDeviceRecommendations(deviceId)
 
   if (loading) return <p className="text-[var(--color-text-secondary)]">Loading…</p>
   if (error) return <p className="text-[var(--color-accent-danger)]">Error: {error}</p>
@@ -129,6 +130,42 @@ export function DeviceDetailPage() {
                   <> &middot; Detected {new Date(risk.detected_at).toLocaleString()}</>
                 )}
               </p>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Recommendations */}
+      <h2 className="mb-3 mt-6 text-lg font-semibold">
+        Recommendations{' '}
+        {!recsLoading && (
+          <span className="text-base font-normal text-[var(--color-text-secondary)]">
+            ({recommendations.length})
+          </span>
+        )}
+      </h2>
+      {recsLoading ? (
+        <p className="text-[var(--color-text-secondary)]">Loading recommendations…</p>
+      ) : recommendations.length === 0 ? (
+        <Card>
+          <p className="py-4 text-center text-sm text-[var(--color-text-secondary)]">
+            No recommendations for this device.
+          </p>
+        </Card>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {recommendations.map((rec) => (
+            <Card key={rec.id}>
+              <div className="mb-1 flex flex-wrap items-center gap-2">
+                <Badge variant={rec.severity}>{rec.severity}</Badge>
+                <Link
+                  to={`/recommendations/${rec.id}`}
+                  className="font-medium hover:underline text-[var(--color-text-primary)]"
+                >
+                  {rec.title}
+                </Link>
+              </div>
+              <p className="text-sm text-[var(--color-text-secondary)]">{rec.description}</p>
             </Card>
           ))}
         </div>

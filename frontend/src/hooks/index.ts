@@ -10,3 +10,10 @@ export type { UseScansResult, UseTriggerScanResult } from './useScans'
 
 export { useRisks, useRiskSummary } from './useRisks'
 export type { UseRisksResult, UseRiskSummaryResult, UseRisksOptions } from './useRisks'
+
+export { useRecommendations, useDeviceRecommendations } from './useRecommendations'
+export type {
+  UseRecommendationsResult,
+  UseRecommendationsOptions,
+  UseDeviceRecommendationsResult,
+} from './useRecommendations'
