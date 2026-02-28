@@ -12,7 +12,9 @@ import os
 from dataclasses import dataclass, field
 
 from app.scanner.arp_scan import ArpHost, run_arp_scan
+from app.scanner.dns_lookup import resolve_hostnames
 from app.scanner.nmap_scan import NmapHost, run_nmap_scan
+from app.scanner.os_inference import enrich_os_guesses
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +65,12 @@ def orchestrate_scan(
         nmap_ips.add(nh.ip)
         if not nh.mac and nh.ip in arp_by_ip:
             nh.mac = arp_by_ip[nh.ip].mac
+
+    # Hostname fallback: reverse DNS for hosts nmap couldn't name
+    resolve_hostnames(nmap_hosts)
+
+    # Passive OS inference from service/version banners
+    enrich_os_guesses(nmap_hosts)
 
     # Hosts arp found but nmap returned nothing for (e.g. ICMP-filtered)
     arp_only = [h for h in arp_hosts if h.ip not in nmap_ips]
