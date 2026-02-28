@@ -24,6 +24,7 @@ from sqlalchemy.pool import StaticPool
 @pytest.fixture(scope="module")
 def db_engine():
     import app.models.device  # noqa: F401 — side-effect import registers ORM tables
+    import app.models.recommendation  # noqa: F401 — side-effect import registers ORM tables
     import app.models.risk  # noqa: F401 — side-effect import registers ORM tables
     import app.models.scan  # noqa: F401 — side-effect import registers ORM tables
     from app.db import Base
@@ -479,5 +480,98 @@ def test_list_risks_filter_by_severity_and_device_id(client, seeded_db, db_engin
         Session2 = sessionmaker(bind=db_engine)  # noqa: N806 — sessionmaker convention; uppercase matches class naming
         db2 = Session2()
         db2.execute(__import__("sqlalchemy").delete(Risk).where(Risk.id == risk_id))
+        db2.commit()
+        db2.close()
+
+
+# ── #47 severity query param validation ───────────────────────────────────────
+
+def test_invalid_severity_returns_422(client):
+    """Invalid severity value must return 422, not silently return empty list."""
+    response = client.get("/api/risks?severity=bogus")
+    assert response.status_code == 422
+
+
+def test_valid_severities_return_200(client):
+    """Each valid severity value must be accepted."""
+    for sev in ("critical", "high", "medium", "low"):
+        response = client.get(f"/api/risks?severity={sev}")
+        assert response.status_code == 200, f"severity={sev} returned {response.status_code}"
+
+
+# ── #48 malformed steps JSON in recommendations ───────────────────────────────
+
+def test_malformed_steps_json_returns_empty_list(client, seeded_db, seeded_risk, db_engine):
+    """Recommendation with malformed steps JSON must return 200 with steps=[]."""
+    from sqlalchemy.orm import sessionmaker
+    from app.models.recommendation import Recommendation
+
+    Session = sessionmaker(bind=db_engine)  # noqa: N806 — sessionmaker convention; uppercase matches class naming
+    db = Session()
+    rec = Recommendation(
+        device_id=seeded_db["device_id"],
+        risk_id=seeded_risk["risk_id"],
+        check_id="test_check",
+        severity="low",
+        title="Test rec",
+        description="desc",
+        steps="NOT VALID JSON {{{",
+        effort="low",
+        impact="low",
+    )
+    db.add(rec)
+    db.commit()
+    rec_id = rec.id
+    db.close()
+
+    try:
+        response = client.get(f"/api/recommendations?device_id={seeded_db['device_id']}")
+        assert response.status_code == 200
+        data = response.json()
+        target = next((r for r in data if r["id"] == rec_id), None)
+        assert target is not None
+        assert target["steps"] == []
+    finally:
+        Session2 = sessionmaker(bind=db_engine)  # noqa: N806 — sessionmaker convention; uppercase matches class naming
+        db2 = Session2()
+        db2.execute(__import__("sqlalchemy").delete(Recommendation).where(Recommendation.id == rec_id))
+        db2.commit()
+        db2.close()
+
+
+def test_empty_steps_returns_empty_list(client, seeded_db, seeded_risk, db_engine):
+    """Recommendation with empty-string steps must return 200 with steps=[]."""
+    from sqlalchemy.orm import sessionmaker
+    from app.models.recommendation import Recommendation
+
+    Session = sessionmaker(bind=db_engine)  # noqa: N806 — sessionmaker convention; uppercase matches class naming
+    db = Session()
+    rec = Recommendation(
+        device_id=seeded_db["device_id"],
+        risk_id=seeded_risk["risk_id"],
+        check_id="test_check_empty",
+        severity="low",
+        title="Test rec empty",
+        description="desc",
+        steps="",
+        effort="low",
+        impact="low",
+    )
+    db.add(rec)
+    db.commit()
+    rec_id = rec.id
+    db.close()
+
+    try:
+        response = client.get(f"/api/recommendations?device_id={seeded_db['device_id']}")
+        assert response.status_code == 200
+        data = response.json()
+        target = next((r for r in data if r["id"] == rec_id), None)
+        assert target is not None
+        assert target["steps"] == []
+    finally:
+        Session2 = sessionmaker(bind=db_engine)  # noqa: N806 — sessionmaker convention; uppercase matches class naming
+        db2 = Session2()
+        db2.execute(__import__("sqlalchemy").delete(Recommendation).where(Recommendation.id == rec_id))
         db2.commit()
         db2.close()

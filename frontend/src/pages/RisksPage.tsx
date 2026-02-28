@@ -3,10 +3,12 @@
  * Route: /risks
  */
 import React, { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Card, Badge, SkeletonCard, PageHeader } from "../components";
 import { useRisks, useRiskSummary, useDevices } from "../hooks";
 import type { Risk, Severity } from "../types/api";
+
+const SEVERITIES: Severity[] = ["critical", "high", "medium", "low"];
 
 const SEV_LEVELS: Severity[] = ["critical", "high", "medium", "low"];
 
@@ -86,7 +88,11 @@ function RiskModal({ risk, onClose }: { risk: Risk; onClose: () => void }) {
 }
 
 export function RisksPage() {
-  const [sevFilter, setSevFilter] = useState<Severity | "">("");
+  const [searchParams] = useSearchParams();
+  const initialSev = searchParams.get("severity");
+  const [sevFilter, setSevFilter] = useState<Severity | "">(
+    SEVERITIES.includes(initialSev as Severity) ? (initialSev as Severity) : "",
+  );
   const [devFilter, setDevFilter] = useState<number | "">("");
   const [selectedRisk, setSelectedRisk] = useState<Risk | null>(null);
 
