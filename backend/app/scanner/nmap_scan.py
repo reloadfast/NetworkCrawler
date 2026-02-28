@@ -56,6 +56,7 @@ def run_nmap_scan(
         return []
 
     iface = interface or os.environ.get("NETWORK_INTERFACE", "eth0")
+    host_timeout = os.environ.get("NMAP_HOST_TIMEOUT", "30s")
 
     with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as tmp:
         xml_path = tmp.name
@@ -67,6 +68,8 @@ def run_nmap_scan(
             # -O (OS detection) intentionally omitted: nmap hard-codes geteuid()==0
             # for OS fingerprinting regardless of file capabilities, so it always
             # quits when running as non-root uid 1000.  os_guess will be empty.
+            "--host-timeout",
+            host_timeout,
             "--top-ports",
             "1000",
             "-e",

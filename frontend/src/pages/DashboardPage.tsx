@@ -159,6 +159,7 @@ export function DashboardPage() {
 
   const lastScan = scans[0] ?? null;
   const loading = devLoading || scanLoading || summaryLoading;
+  const noScansYet = !loading && scans.length === 0;
 
   const handleTrigger = async () => {
     const result = await trigger();
@@ -198,6 +199,27 @@ export function DashboardPage() {
       {isRunning && <ScanBanner scanId={activeScanId} />}
 
       <PageHeader title="Dashboard" action={triggerButton} />
+
+      {noScansYet && (
+        <Card className="mb-6 flex flex-col items-center gap-4 py-10 text-center">
+          <div className="text-4xl">🛡️</div>
+          <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
+            Welcome to NetworkCrawler
+          </h2>
+          <p className="max-w-md text-sm text-[var(--color-text-secondary)]">
+            Discover every device on your LAN, identify misconfigurations, and
+            get actionable hardening advice — all locally, with no data leaving
+            your network.
+          </p>
+          <button
+            onClick={handleTrigger}
+            disabled={triggering}
+            className="mt-2 rounded-lg bg-[var(--color-accent-primary)] px-6 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {triggering ? "Starting…" : "Run your first scan"}
+          </button>
+        </Card>
+      )}
 
       {loading ? (
         <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
