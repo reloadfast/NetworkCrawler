@@ -3,7 +3,7 @@
  * Route: /settings
  */
 import { useState } from "react";
-import { Card } from "../components";
+import { Card, PageHeader } from "../components";
 import { useAppVersion } from "../hooks/useAppVersion";
 
 export function SettingsPage() {
@@ -20,7 +20,7 @@ export function SettingsPage() {
 
   return (
     <div className="page-enter">
-      <h1 className="mb-6 text-2xl font-bold tracking-tight">Settings</h1>
+      <PageHeader title="Settings" />
 
       {/* ── System ─────────────────────────────────────────────────────── */}
       <section aria-labelledby="system-heading">

@@ -194,7 +194,7 @@ describe("Layout version badge", () => {
     await waitFor(() => expect(screen.getByText("v0.1.0")).toBeTruthy());
     fireEvent.click(screen.getByText("v0.1.0"));
     expect(writeText).toHaveBeenCalledWith("v0.1.0");
-    await waitFor(() => expect(screen.getByText("✓")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("✓ copied")).toBeTruthy());
   });
 
   it("does not render a version badge while loading", () => {

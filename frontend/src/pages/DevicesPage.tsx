@@ -4,7 +4,7 @@
  */
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Card, Badge, SkeletonTable } from "../components";
+import { Card, Badge, SkeletonTable, PageHeader } from "../components";
 import { useDevices, useRisks } from "../hooks";
 import type { Device } from "../types/api";
 
@@ -103,17 +103,24 @@ export function DevicesPage() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">Devices</h1>
-        <input
-          type="search"
-          placeholder="Filter by IP, hostname, OS…"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          aria-label="Filter devices"
-          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent-positive)] sm:w-64"
-        />
-      </div>
+      <PageHeader
+        title="Devices"
+        subtitle={
+          devices.length > 0
+            ? `${devices.length} device${devices.length !== 1 ? "s" : ""} discovered`
+            : undefined
+        }
+        action={
+          <input
+            type="search"
+            placeholder="Filter by IP, hostname, OS…"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            aria-label="Filter devices"
+            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent-primary)] sm:w-64"
+          />
+        }
+      />
 
       {loading && <SkeletonTable rows={6} />}
       {error && (

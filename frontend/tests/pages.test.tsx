@@ -282,7 +282,7 @@ describe("DeviceDetailPage", () => {
     vi.stubGlobal("fetch", buildFetch());
     renderDetail("1");
     await waitFor(() =>
-      expect(screen.getByText("10.0.0.1")).toBeInTheDocument(),
+      expect(screen.getAllByText("10.0.0.1").length).toBeGreaterThanOrEqual(1),
     );
     expect(screen.getByText("22")).toBeInTheDocument();
     expect(screen.getByText("ssh")).toBeInTheDocument();
@@ -325,7 +325,7 @@ describe("RisksPage", () => {
     await waitFor(() =>
       expect(screen.getByText("Default credentials")).toBeInTheDocument(),
     );
-    expect(screen.getByText(/Risk Summary/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Filter by critical severity/i)).toBeInTheDocument();
   });
 
   it("shows empty state when no risks", async () => {

@@ -21,3 +21,5 @@ export type { ToastMessage, ToastVariant, ToastContainerProps } from "./Toast";
 
 export { ScanBanner } from "./ScanBanner";
 export type { ScanBannerProps } from "./ScanBanner";
+
+export { PageHeader } from "./PageHeader";

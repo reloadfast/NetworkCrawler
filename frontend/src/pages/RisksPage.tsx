@@ -1,14 +1,21 @@
 /**
- * RisksPage — filterable risk list with severity summary chart.
+ * RisksPage — filterable risk list with severity summary cards.
  * Route: /risks
  */
 import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Card, Badge, ProgressBar, SkeletonCard } from "../components";
+import { Card, Badge, SkeletonCard, PageHeader } from "../components";
 import { useRisks, useRiskSummary, useDevices } from "../hooks";
 import type { Risk, Severity } from "../types/api";
 
 const SEV_LEVELS: Severity[] = ["critical", "high", "medium", "low"];
+
+const SEV_COLOR: Record<Severity, string> = {
+  critical: "var(--color-accent-danger)",
+  high: "var(--color-accent-warning)",
+  medium: "var(--color-accent-caution)",
+  low: "var(--color-accent-positive)",
+};
 
 // Modal for full risk detail
 function RiskModal({ risk, onClose }: { risk: Risk; onClose: () => void }) {
@@ -20,9 +27,9 @@ function RiskModal({ risk, onClose }: { risk: Risk; onClose: () => void }) {
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={onClose}
     >
-      <div className="absolute inset-0 bg-black/50" />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <Card
-        className="relative z-10 w-full max-w-lg"
+        className="relative z-10 w-full max-w-lg shadow-xl"
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-3">
@@ -60,7 +67,7 @@ function RiskModal({ risk, onClose }: { risk: Risk; onClose: () => void }) {
           </div>
           <div>
             <dt className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
-              Device ID
+              Device
             </dt>
             <dd>
               <Link
@@ -92,7 +99,7 @@ export function RisksPage() {
 
   const totalRisks = summary?.total ?? 0;
 
-  const summaryBars = useMemo(
+  const summaryCards = useMemo(
     () =>
       SEV_LEVELS.map((sev) => ({
         sev,
@@ -101,42 +108,54 @@ export function RisksPage() {
           totalRisks > 0
             ? Math.round(((summary?.[sev] ?? 0) / totalRisks) * 100)
             : 0,
-        variant:
-          sev === "critical" || sev === "high"
-            ? ("danger" as const)
-            : sev === "medium"
-              ? ("warning" as const)
-              : ("positive" as const),
+        color: SEV_COLOR[sev],
       })),
     [summary, totalRisks],
   );
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold tracking-tight">Risks</h1>
+      <PageHeader
+        title="Risks"
+        subtitle={
+          totalRisks > 0
+            ? `${totalRisks} total risk${totalRisks !== 1 ? "s" : ""} detected`
+            : undefined
+        }
+      />
 
-      {/* Summary */}
+      {/* Severity summary cards */}
       {summary && (
-        <Card className="mb-6">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[var(--color-text-secondary)]">
-            Risk Summary — {totalRisks} total
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {summaryBars.map(({ sev, count, pct, variant }) => (
-              <div key={sev} className="flex items-center gap-3">
-                <Badge variant={sev} className="w-20 justify-center">
-                  {sev}
-                </Badge>
-                <div className="flex-1">
-                  <ProgressBar value={pct} variant={variant} showLabel />
-                </div>
-                <span className="w-6 text-right text-sm text-[var(--color-text-secondary)]">
-                  {count}
-                </span>
-              </div>
-            ))}
-          </div>
-        </Card>
+        <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {summaryCards.map(({ sev, count, pct, color }) => (
+            <button
+              key={sev}
+              onClick={() => setSevFilter(sev === sevFilter ? "" : sev)}
+              className={[
+                "group relative overflow-hidden rounded-xl border p-4 text-left transition-all duration-150",
+                sevFilter === sev
+                  ? "border-[var(--color-accent-primary)]/60 bg-[var(--color-surface)]"
+                  : "border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-border)]",
+              ].join(" ")}
+              style={{ borderLeft: `3px solid ${color}` }}
+              aria-pressed={sevFilter === sev}
+              aria-label={`Filter by ${sev} severity (${count})`}
+            >
+              <p
+                className="text-xs font-semibold uppercase tracking-widest"
+                style={{ color }}
+              >
+                {sev}
+              </p>
+              <p className="mt-1 text-2xl font-bold text-[var(--color-text-primary)]">
+                {count}
+              </p>
+              <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+                {pct}% of total
+              </p>
+            </button>
+          ))}
+        </div>
       )}
 
       {/* Filters */}
@@ -145,7 +164,7 @@ export function RisksPage() {
           value={sevFilter}
           onChange={(e) => setSevFilter(e.target.value as Severity | "")}
           aria-label="Filter by severity"
-          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent-positive)]"
+          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent-primary)]"
         >
           <option value="">All severities</option>
           {SEV_LEVELS.map((s) => (
@@ -161,7 +180,7 @@ export function RisksPage() {
             setDevFilter(e.target.value ? Number(e.target.value) : "")
           }
           aria-label="Filter by device"
-          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent-positive)]"
+          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent-primary)]"
         >
           <option value="">All devices</option>
           {devices.map((d) => (
@@ -171,6 +190,18 @@ export function RisksPage() {
             </option>
           ))}
         </select>
+
+        {(sevFilter || devFilter) && (
+          <button
+            onClick={() => {
+              setSevFilter("");
+              setDevFilter("");
+            }}
+            className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+          >
+            Clear filters ✕
+          </button>
+        )}
       </div>
 
       {/* Risk list */}
@@ -203,12 +234,12 @@ export function RisksPage() {
               return (
                 <button
                   key={risk.id}
-                  className="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-left hover:bg-[var(--color-surface)]"
+                  className="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--color-background)]"
                   onClick={() => setSelectedRisk(risk)}
                   aria-label={`View details for ${risk.title}`}
                 >
                   <Badge variant={risk.severity}>{risk.severity}</Badge>
-                  <span className="flex-1 font-medium text-sm">
+                  <span className="flex-1 text-sm font-medium">
                     {risk.title}
                   </span>
                   <span className="text-xs text-[var(--color-text-secondary)]">

@@ -4,7 +4,7 @@
  */
 import { memo } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Card, Badge, SkeletonCard } from "../components";
+import { Card, Badge, SkeletonCard, PageHeader } from "../components";
 import { useDevice, useRisks, useDeviceRecommendations } from "../hooks";
 import type { Risk, Recommendation, Severity } from "../types/api";
 
@@ -71,18 +71,22 @@ export function DeviceDetailPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center gap-3">
+      <div className="mb-1 flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
         <Link
           to="/devices"
-          className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+          className="hover:text-[var(--color-text-primary)] transition-colors"
         >
-          ← Devices
+          Devices
         </Link>
-        <span className="text-[var(--color-border)]">/</span>
-        <h1 className="text-2xl font-bold tracking-tight font-mono">
+        <span className="opacity-40">/</span>
+        <span className="font-mono text-[var(--color-text-primary)]">
           {device.ip_address}
-        </h1>
+        </span>
       </div>
+      <PageHeader
+        title={device.ip_address}
+        subtitle={device.hostname ?? undefined}
+      />
 
       {/* Device metadata */}
       <Card className="mb-6">

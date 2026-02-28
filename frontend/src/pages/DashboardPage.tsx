@@ -10,32 +10,135 @@ import {
   ScanBanner,
   ToastContainer,
   SkeletonCard,
+  PageHeader,
 } from "../components";
 import { useDevices, useScans, useTriggerScan, useRiskSummary } from "../hooks";
 import { useScanStatus } from "../hooks/useScanStatus";
 import { useToast } from "../hooks/useToast";
 
+// ── Accent stripe colours per stat card ───────────────────────────────────────
+const STRIPE: Record<string, string> = {
+  devices: "var(--color-accent-primary)",
+  critical: "var(--color-accent-danger)",
+  high: "var(--color-accent-warning)",
+  other: "var(--color-accent-positive)",
+};
+
+function DeviceIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="2" y="3" width="20" height="14" rx="2" />
+      <line x1="8" y1="21" x2="16" y2="21" />
+      <line x1="12" y1="17" x2="12" y2="21" />
+    </svg>
+  );
+}
+
+function CriticalIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  );
+}
+
+function WarningIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
+  );
+}
+
+function ShieldIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  );
+}
+
 const StatCard = memo(function StatCard({
   label,
   value,
   sub,
+  accentColor,
+  icon,
 }: {
   label: string;
   value: React.ReactNode;
   sub?: string;
+  accentColor: string;
+  icon: React.ReactNode;
 }) {
   return (
-    <Card>
-      <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-[var(--color-text-secondary)]">
-        {label}
-      </p>
-      <p className="text-3xl font-bold text-[var(--color-text-primary)]">
-        {value}
-      </p>
-      {sub && (
-        <p className="mt-1 text-xs text-[var(--color-text-secondary)]">{sub}</p>
-      )}
-    </Card>
+    <div
+      className="relative overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5"
+      style={{ borderLeft: `3px solid ${accentColor}` }}
+    >
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-[var(--color-text-secondary)]">
+            {label}
+          </p>
+          <p className="text-3xl font-bold text-[var(--color-text-primary)]">
+            {value}
+          </p>
+          {sub && (
+            <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+              {sub}
+            </p>
+          )}
+        </div>
+        <div style={{ color: accentColor }} className="opacity-60 mt-0.5">
+          {icon}
+        </div>
+      </div>
+    </div>
   );
 });
 
@@ -62,34 +165,33 @@ export function DashboardPage() {
     }
   };
 
-  // Show active scan id in banner: prefer the one just triggered, fall back to running scan
   const activeScanId =
     scanStartedId ?? (isRunning ? (runningScan?.id ?? null) : null);
 
+  const triggerButton = (
+    <button
+      onClick={handleTrigger}
+      disabled={triggering || isRunning}
+      aria-label={
+        triggering || isRunning ? "Scan in progress" : "Trigger a new scan"
+      }
+      className="flex items-center gap-2 rounded-lg bg-[var(--color-accent-primary)]/10 border border-[var(--color-accent-primary)]/30 px-4 py-2 text-sm font-medium text-[var(--color-accent-primary)] transition-colors duration-150 hover:bg-[var(--color-accent-primary)]/20 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {(triggering || isRunning) && (
+        <span
+          className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
+          aria-hidden="true"
+        />
+      )}
+      {triggering ? "Starting…" : isRunning ? "Scanning…" : "Trigger Scan"}
+    </button>
+  );
+
   return (
     <div className="page-enter">
-      {/* Scan-in-progress banner */}
       {isRunning && <ScanBanner scanId={activeScanId} />}
 
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <button
-          onClick={handleTrigger}
-          disabled={triggering || isRunning}
-          aria-label={
-            triggering || isRunning ? "Scan in progress" : "Trigger a new scan"
-          }
-          className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-sm font-medium text-[var(--color-text-primary)] transition-colors duration-150 hover:border-[var(--color-accent-positive)] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {(triggering || isRunning) && (
-            <span
-              className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
-              aria-hidden="true"
-            />
-          )}
-          {triggering ? "Starting…" : isRunning ? "Scanning…" : "Trigger Scan"}
-        </button>
-      </div>
+      <PageHeader title="Dashboard" action={triggerButton} />
 
       {loading ? (
         <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -99,31 +201,38 @@ export function DashboardPage() {
         </div>
       ) : (
         <>
-          {/* Summary cards */}
+          {/* Summary stat cards */}
           <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard label="Total Devices" value={devices.length} />
             <StatCard
-              label="Critical"
+              label="Total Devices"
+              value={devices.length}
+              accentColor={STRIPE.devices}
+              icon={<DeviceIcon />}
+            />
+            <StatCard
+              label="Critical Risks"
               value={
-                <span className="text-[var(--color-accent-danger)]">
+                <span style={{ color: STRIPE.critical }}>
                   {summary?.critical ?? 0}
                 </span>
               }
-              sub="risks"
+              accentColor={STRIPE.critical}
+              icon={<CriticalIcon />}
             />
             <StatCard
-              label="High"
+              label="High Risks"
               value={
-                <span className="text-[var(--color-accent-danger)]">
-                  {summary?.high ?? 0}
-                </span>
+                <span style={{ color: STRIPE.high }}>{summary?.high ?? 0}</span>
               }
-              sub="risks"
+              accentColor={STRIPE.high}
+              icon={<WarningIcon />}
             />
             <StatCard
               label="Medium / Low"
               value={(summary?.medium ?? 0) + (summary?.low ?? 0)}
               sub="risks"
+              accentColor={STRIPE.other}
+              icon={<ShieldIcon />}
             />
           </div>
 
@@ -164,13 +273,13 @@ export function DashboardPage() {
               </div>
             ) : (
               <p className="text-sm text-[var(--color-text-secondary)]">
-                No scans yet.
+                No scans yet. Trigger a scan to get started.
               </p>
             )}
           </Card>
 
           {/* Quick links */}
-          <div className="flex gap-3 text-sm">
+          <div className="flex gap-4 text-sm">
             <Link
               to="/devices"
               className="text-[var(--color-accent-positive)] underline-offset-2 hover:underline"
@@ -187,7 +296,6 @@ export function DashboardPage() {
         </>
       )}
 
-      {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
