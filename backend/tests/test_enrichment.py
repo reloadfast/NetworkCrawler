@@ -6,7 +6,7 @@ Markers: unit
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from app.scanner.dns_lookup import resolve_hostnames
@@ -225,3 +225,62 @@ class TestResolveHostnames:
 
         for i, host in enumerate(hosts, 1):
             assert host.hostname == f"host-{i}.local"
+
+    @pytest.mark.unit
+    def test_avahi_resolve_used_when_ptr_fails(self):
+        """When PTR returns nothing, avahi-resolve should be tried as fallback."""
+        host = NmapHost(ip="192.168.1.50", hostname="")
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "192.168.1.50\tpi.local\n"
+        with (
+            patch("app.scanner.dns_lookup.socket.gethostbyaddr", side_effect=OSError),
+            patch("app.scanner.dns_lookup.subprocess.run", return_value=mock_result),
+        ):
+            resolve_hostnames([host])
+        assert host.hostname == "pi.local"
+
+    @pytest.mark.unit
+    def test_avahi_not_installed_falls_back_silently(self):
+        """FileNotFoundError from avahi-resolve must not raise; hostname stays empty."""
+        host = NmapHost(ip="192.168.1.51", hostname="")
+        with (
+            patch("app.scanner.dns_lookup.socket.gethostbyaddr", side_effect=OSError),
+            patch(
+                "app.scanner.dns_lookup.subprocess.run",
+                side_effect=FileNotFoundError("avahi-resolve not found"),
+            ),
+        ):
+            resolve_hostnames([host])
+        assert host.hostname == ""
+
+    @pytest.mark.unit
+    def test_avahi_timeout_falls_back_silently(self):
+        """subprocess.TimeoutExpired from avahi-resolve must not raise."""
+        import subprocess as _subprocess
+
+        host = NmapHost(ip="192.168.1.52", hostname="")
+        with (
+            patch("app.scanner.dns_lookup.socket.gethostbyaddr", side_effect=OSError),
+            patch(
+                "app.scanner.dns_lookup.subprocess.run",
+                side_effect=_subprocess.TimeoutExpired(cmd="avahi-resolve", timeout=2),
+            ),
+        ):
+            resolve_hostnames([host])
+        assert host.hostname == ""
+
+    @pytest.mark.unit
+    def test_avahi_not_called_when_ptr_succeeds(self):
+        """avahi-resolve must not be invoked when PTR already returned a hostname."""
+        host = NmapHost(ip="192.168.1.1", hostname="")
+        with (
+            patch(
+                "app.scanner.dns_lookup.socket.gethostbyaddr",
+                return_value=("router.local", [], ["192.168.1.1"]),
+            ),
+            patch("app.scanner.dns_lookup.subprocess.run") as mock_avahi,
+        ):
+            resolve_hostnames([host])
+        mock_avahi.assert_not_called()
+        assert host.hostname == "router.local"
