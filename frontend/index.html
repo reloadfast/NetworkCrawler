@@ -8,7 +8,15 @@
       content="NetworkCrawler — LAN security posture scanner"
     />
     <title>NetworkCrawler</title>
-    <!-- Favicon placeholder — replaced in Phase 6 (Polish) -->
+    <!-- FOUC guard: apply saved theme before React mounts to prevent light flash -->
+    <script>
+      (function () {
+        var t = localStorage.getItem("nc-theme");
+        if (t === "dark" || (!t && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

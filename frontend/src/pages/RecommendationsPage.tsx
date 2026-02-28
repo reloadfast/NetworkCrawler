@@ -4,7 +4,7 @@
  */
 import { memo, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Card, Badge, SkeletonCard } from "../components";
+import { Card, Badge, SkeletonCard, PageHeader } from "../components";
 import { useRecommendations } from "../hooks";
 import type { Recommendation, Severity } from "../types/api";
 
@@ -86,28 +86,31 @@ export function RecommendationsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold tracking-tight">Recommendations</h1>
-        <div className="flex items-center gap-2">
-          <label
-            htmlFor="sort-select"
-            className="text-sm text-[var(--color-text-secondary)]"
-          >
-            Sort by:
-          </label>
-          <select
-            id="sort-select"
-            value={sortKey}
-            onChange={(e) => setSortKey(e.target.value as SortKey)}
-            aria-label="Sort recommendations"
-            className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-sm text-[var(--color-text-primary)] focus:outline-none"
-          >
-            <option value="severity">Severity</option>
-            <option value="effort">Effort</option>
-            <option value="impact">Impact</option>
-          </select>
-        </div>
-      </div>
+      <PageHeader
+        title="Recommendations"
+        subtitle={sorted.length > 0 ? `${sorted.length} hardening recommendation${sorted.length !== 1 ? "s" : ""}` : undefined}
+        action={
+          <div className="flex items-center gap-2">
+            <label
+              htmlFor="sort-select"
+              className="text-sm text-[var(--color-text-secondary)]"
+            >
+              Sort by:
+            </label>
+            <select
+              id="sort-select"
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as SortKey)}
+              aria-label="Sort recommendations"
+              className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-sm text-[var(--color-text-primary)] focus:outline-none"
+            >
+              <option value="severity">Severity</option>
+              <option value="effort">Effort</option>
+              <option value="impact">Impact</option>
+            </select>
+          </div>
+        }
+      />
 
       {sorted.length === 0 ? (
         <Card>

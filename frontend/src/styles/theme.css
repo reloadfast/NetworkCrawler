@@ -2,8 +2,11 @@
  *
  * Both dark and light themes are defined here using CSS custom properties.
  * Components reference only semantic tokens (never raw colours).
- * Full token values are populated in Phase 4 (UI) per UI_style.md.
  */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   color-scheme: light dark;
