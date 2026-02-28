@@ -101,8 +101,14 @@ def parse_nmap_xml(xml_text: str) -> list[NmapHost]:
 
     Only 'up' hosts with at least one port entry are included; filtered
     ports (state != 'open') are silently skipped.
+
+    Raises RuntimeError on malformed/truncated XML so the caller's partial-scan
+    handler can continue with ARP-only results rather than crashing.
     """
-    root = ET.fromstring(xml_text)  # noqa: S314 — input is local nmap output, not user data
+    try:
+        root = ET.fromstring(xml_text)  # noqa: S314 — input is local nmap output, not user data
+    except ET.ParseError as exc:
+        raise RuntimeError(f"nmap XML is malformed or truncated: {exc}") from exc
     results: list[NmapHost] = []
 
     for host_el in root.findall("host"):

@@ -488,3 +488,41 @@ class TestOrchestrateScan:
 
         cmd = mock_run.call_args[0][0]
         assert cmd[cmd.index("--host-timeout") + 1] == "60s"
+
+
+@pytest.mark.unit
+def test_parse_nmap_xml_raises_runtime_error_on_malformed_xml():
+    """Truncated or malformed nmap XML must raise RuntimeError, not ParseError."""
+    from app.scanner.nmap_scan import parse_nmap_xml
+
+    with pytest.raises(RuntimeError, match="malformed or truncated"):
+        parse_nmap_xml("<nmaprun><host><statu")  # truncated mid-tag
+
+
+@pytest.mark.unit
+def test_parse_nmap_xml_raises_runtime_error_on_empty_string():
+    from app.scanner.nmap_scan import parse_nmap_xml
+
+    with pytest.raises(RuntimeError):
+        parse_nmap_xml("")
+
+
+@pytest.mark.unit
+def test_orchestrate_scan_raises_on_invalid_cidr(monkeypatch):
+    """Invalid SCAN_SUBNET must raise ValueError before any scan tools are called."""
+    from app.scanner import orchestrate_scan
+
+    monkeypatch.setenv("SCAN_SUBNET", "not-a-cidr")
+    with pytest.raises(ValueError, match="Invalid SCAN_SUBNET"):
+        orchestrate_scan()
+
+
+@pytest.mark.unit
+def test_orchestrate_scan_accepts_valid_cidr(monkeypatch):
+    """Valid CIDR must not raise — passes through to arp-scan."""
+    from app.scanner import orchestrate_scan
+
+    monkeypatch.setenv("SCAN_SUBNET", "10.0.0.0/24")
+    with patch("app.scanner.run_arp_scan", return_value=[]):
+        result = orchestrate_scan(subnet="10.0.0.0/24")
+    assert result.hosts == []

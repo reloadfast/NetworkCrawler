@@ -5,19 +5,11 @@
 import React, { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Card, Badge, SkeletonCard, PageHeader } from "../components";
+import { SEV_COLORS, SEV_LEVELS } from "../constants/severity";
 import { useRisks, useRiskSummary, useDevices } from "../hooks";
 import type { Risk, Severity } from "../types/api";
 
-const SEVERITIES: Severity[] = ["critical", "high", "medium", "low"];
-
-const SEV_LEVELS: Severity[] = ["critical", "high", "medium", "low"];
-
-const SEV_COLOR: Record<Severity, string> = {
-  critical: "var(--color-accent-danger)",
-  high: "var(--color-accent-warning)",
-  medium: "var(--color-accent-caution)",
-  low: "var(--color-accent-positive)",
-};
+const SEVERITIES: Severity[] = SEV_LEVELS;
 
 // Modal for full risk detail
 function RiskModal({ risk, onClose }: { risk: Risk; onClose: () => void }) {
@@ -114,7 +106,7 @@ export function RisksPage() {
           totalRisks > 0
             ? Math.round(((summary?.[sev] ?? 0) / totalRisks) * 100)
             : 0,
-        color: SEV_COLOR[sev],
+        color: SEV_COLORS[sev],
       })),
     [summary, totalRisks],
   );
