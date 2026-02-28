@@ -29,6 +29,9 @@ class ScanResult:
     arp_only: list[ArpHost] = field(default_factory=list)
     """Hosts found by arp-scan that nmap returned no data for."""
 
+    warnings: list[str] = field(default_factory=list)
+    """Non-fatal warnings accumulated during the scan (e.g. nmap failure)."""
+
 
 def orchestrate_scan(
     interface: str | None = None,
@@ -56,8 +59,15 @@ def orchestrate_scan(
     arp_by_ip = {h.ip: h for h in arp_hosts}
 
     logger.info("Starting nmap scan on %d hosts", len(ip_list))
-    nmap_hosts = run_nmap_scan(hosts=ip_list, interface=iface)
-    logger.info("nmap scan returned %d hosts", len(nmap_hosts))
+    nmap_hosts: list[NmapHost] = []
+    warnings: list[str] = []
+    try:
+        nmap_hosts = run_nmap_scan(hosts=ip_list, interface=iface)
+        logger.info("nmap scan returned %d hosts", len(nmap_hosts))
+    except RuntimeError as exc:
+        msg = f"nmap unavailable — showing ARP-only results: {exc}"
+        logger.warning(msg)
+        warnings.append(msg)
 
     # Enrich nmap results with MAC / vendor from arp-scan
     nmap_ips: set[str] = set()
@@ -75,4 +85,4 @@ def orchestrate_scan(
     # Hosts arp found but nmap returned nothing for (e.g. ICMP-filtered)
     arp_only = [h for h in arp_hosts if h.ip not in nmap_ips]
 
-    return ScanResult(hosts=nmap_hosts, arp_only=arp_only)
+    return ScanResult(hosts=nmap_hosts, arp_only=arp_only, warnings=warnings)

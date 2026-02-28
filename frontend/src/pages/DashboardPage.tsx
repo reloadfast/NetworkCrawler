@@ -302,6 +302,11 @@ export function DashboardPage() {
                     {lastScan.devices_found !== 1 ? "s" : ""} found
                   </span>
                 )}
+                {lastScan.warning_message && (
+                  <span className="text-[var(--color-accent-warning)] text-xs">
+                    ⚠ {lastScan.warning_message}
+                  </span>
+                )}
               </div>
             ) : (
               <p className="text-sm text-[var(--color-text-secondary)]">

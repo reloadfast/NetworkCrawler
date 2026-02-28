@@ -211,3 +211,17 @@ class TestResolveHostnames:
         with patch("app.scanner.dns_lookup.socket.gethostbyaddr") as mock_dns:
             resolve_hostnames([])
         mock_dns.assert_not_called()
+
+    @pytest.mark.unit
+    def test_resolves_multiple_hosts_concurrently(self):
+        """All hosts in the list should be resolved regardless of concurrency."""
+        hosts = [NmapHost(ip=f"192.168.1.{i}", hostname="") for i in range(1, 6)]
+
+        def fake_rdns(ip):
+            return (f"host-{ip.split('.')[-1]}.local", [], [ip])
+
+        with patch("app.scanner.dns_lookup.socket.gethostbyaddr", side_effect=fake_rdns):
+            resolve_hostnames(hosts)
+
+        for i, host in enumerate(hosts, 1):
+            assert host.hostname == f"host-{i}.local"

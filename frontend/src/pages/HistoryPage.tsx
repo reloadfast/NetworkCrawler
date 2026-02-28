@@ -284,7 +284,17 @@ export function HistoryPage() {
                       <td className="px-4 py-2 text-[var(--color-text-secondary)]">
                         {shortDate(s.started_at)}
                       </td>
-                      <td className="px-4 py-2 capitalize">{s.triggered_by}</td>
+                      <td className="px-4 py-2 capitalize">
+                        {s.triggered_by}
+                        {s.warning_message && (
+                          <span
+                            title={s.warning_message}
+                            className="ml-1 cursor-help text-[var(--color-accent-warning)]"
+                          >
+                            ⚠
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-2 text-[var(--color-text-secondary)]">
                         {s.duration_seconds != null
                           ? `${s.duration_seconds}s`
