@@ -4,7 +4,7 @@
  */
 
 export interface ScanBannerProps {
-  scanId?: number | null
+  scanId?: number | null;
 }
 
 export function ScanBanner({ scanId }: ScanBannerProps) {
@@ -14,11 +14,11 @@ export function ScanBanner({ scanId }: ScanBannerProps) {
       aria-live="polite"
       aria-label="Scan in progress"
       className={[
-        'flex items-center gap-3 rounded-lg border px-4 py-2.5 text-sm font-medium mb-4',
-        'border-[var(--color-accent-primary)]/40',
-        'bg-[var(--color-accent-primary)]/10',
-        'text-[var(--color-accent-primary)]',
-      ].join(' ')}
+        "flex items-center gap-3 rounded-lg border px-4 py-2.5 text-sm font-medium mb-4",
+        "border-[var(--color-accent-primary)]/40",
+        "bg-[var(--color-accent-primary)]/10",
+        "text-[var(--color-accent-primary)]",
+      ].join(" ")}
     >
       {/* Pulsing dot */}
       <span className="relative flex h-2.5 w-2.5 shrink-0" aria-hidden="true">
@@ -33,5 +33,5 @@ export function ScanBanner({ scanId }: ScanBannerProps) {
         … results will update automatically.
       </span>
     </div>
-  )
+  );
 }

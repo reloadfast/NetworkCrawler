@@ -2,13 +2,13 @@
  * DeviceDetailPage — ports/services table, risk list, timestamps.
  * Route: /devices/:id
  */
-import { memo } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { Card, Badge, SkeletonCard } from '../components'
-import { useDevice, useRisks, useDeviceRecommendations } from '../hooks'
-import type { Risk, Recommendation, Severity } from '../types/api'
+import { memo } from "react";
+import { Link, useParams } from "react-router-dom";
+import { Card, Badge, SkeletonCard } from "../components";
+import { useDevice, useRisks, useDeviceRecommendations } from "../hooks";
+import type { Risk, Recommendation, Severity } from "../types/api";
 
-const SEV_ORDER: Severity[] = ['critical', 'high', 'medium', 'low']
+const SEV_ORDER: Severity[] = ["critical", "high", "medium", "low"];
 
 const RiskCard = memo(function RiskCard({ risk }: { risk: Risk }) {
   return (
@@ -17,7 +17,9 @@ const RiskCard = memo(function RiskCard({ risk }: { risk: Risk }) {
         <Badge variant={risk.severity}>{risk.severity}</Badge>
         <span className="font-medium">{risk.title}</span>
       </div>
-      <p className="text-sm text-[var(--color-text-secondary)]">{risk.description}</p>
+      <p className="text-sm text-[var(--color-text-secondary)]">
+        {risk.description}
+      </p>
       <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
         Check: <span className="font-mono">{risk.check_id}</span>
         {risk.detected_at && (
@@ -25,8 +27,8 @@ const RiskCard = memo(function RiskCard({ risk }: { risk: Risk }) {
         )}
       </p>
     </Card>
-  )
-})
+  );
+});
 
 const RecCard = memo(function RecCard({ rec }: { rec: Recommendation }) {
   return (
@@ -40,25 +42,32 @@ const RecCard = memo(function RecCard({ rec }: { rec: Recommendation }) {
           {rec.title}
         </Link>
       </div>
-      <p className="text-sm text-[var(--color-text-secondary)]">{rec.description}</p>
+      <p className="text-sm text-[var(--color-text-secondary)]">
+        {rec.description}
+      </p>
     </Card>
-  )
-})
+  );
+});
 
 export function DeviceDetailPage() {
-  const { id } = useParams<{ id: string }>()
-  const deviceId = Number(id)
-  const { device, loading, error } = useDevice(deviceId)
-  const { risks, loading: risksLoading } = useRisks({ deviceId })
-  const { recommendations, loading: recsLoading } = useDeviceRecommendations(deviceId)
+  const { id } = useParams<{ id: string }>();
+  const deviceId = Number(id);
+  const { device, loading, error } = useDevice(deviceId);
+  const { risks, loading: risksLoading } = useRisks({ deviceId });
+  const { recommendations, loading: recsLoading } =
+    useDeviceRecommendations(deviceId);
 
-  if (loading) return <SkeletonCard height="48" />
-  if (error) return <p className="text-[var(--color-accent-danger)]">Error: {error}</p>
-  if (!device) return <p className="text-[var(--color-text-secondary)]">Device not found.</p>
+  if (loading) return <SkeletonCard height="48" />;
+  if (error)
+    return <p className="text-[var(--color-accent-danger)]">Error: {error}</p>;
+  if (!device)
+    return (
+      <p className="text-[var(--color-text-secondary)]">Device not found.</p>
+    );
 
   const sortedRisks = [...risks].sort(
     (a, b) => SEV_ORDER.indexOf(a.severity) - SEV_ORDER.indexOf(b.severity),
-  )
+  );
 
   return (
     <div>
@@ -70,25 +79,39 @@ export function DeviceDetailPage() {
           ← Devices
         </Link>
         <span className="text-[var(--color-border)]">/</span>
-        <h1 className="text-2xl font-bold tracking-tight font-mono">{device.ip_address}</h1>
+        <h1 className="text-2xl font-bold tracking-tight font-mono">
+          {device.ip_address}
+        </h1>
       </div>
 
       {/* Device metadata */}
       <Card className="mb-6">
         <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
           {[
-            ['Hostname', device.hostname ?? '—'],
-            ['MAC Address', device.mac_address ?? '—'],
-            ['Vendor', device.vendor ?? '—'],
-            ['OS', device.os_guess ?? '—'],
-            ['First Seen', device.first_seen ? new Date(device.first_seen).toLocaleString() : '—'],
-            ['Last Seen', device.last_seen ? new Date(device.last_seen).toLocaleString() : '—'],
+            ["Hostname", device.hostname ?? "—"],
+            ["MAC Address", device.mac_address ?? "—"],
+            ["Vendor", device.vendor ?? "—"],
+            ["OS", device.os_guess ?? "—"],
+            [
+              "First Seen",
+              device.first_seen
+                ? new Date(device.first_seen).toLocaleString()
+                : "—",
+            ],
+            [
+              "Last Seen",
+              device.last_seen
+                ? new Date(device.last_seen).toLocaleString()
+                : "—",
+            ],
           ].map(([label, value]) => (
             <div key={label} className="flex flex-col">
               <dt className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
                 {label}
               </dt>
-              <dd className="font-mono text-[var(--color-text-primary)]">{value}</dd>
+              <dd className="font-mono text-[var(--color-text-primary)]">
+                {value}
+              </dd>
             </div>
           ))}
         </dl>
@@ -106,10 +129,18 @@ export function DeviceDetailPage() {
             <table className="w-full text-sm" aria-label="Open ports table">
               <thead>
                 <tr className="border-b border-[var(--color-border)] text-left text-xs uppercase tracking-wider text-[var(--color-text-secondary)]">
-                  <th scope="col" className="px-4 py-3">Port</th>
-                  <th scope="col" className="px-4 py-3">Protocol</th>
-                  <th scope="col" className="px-4 py-3">Service</th>
-                  <th scope="col" className="px-4 py-3">Banner</th>
+                  <th scope="col" className="px-4 py-3">
+                    Port
+                  </th>
+                  <th scope="col" className="px-4 py-3">
+                    Protocol
+                  </th>
+                  <th scope="col" className="px-4 py-3">
+                    Service
+                  </th>
+                  <th scope="col" className="px-4 py-3">
+                    Banner
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -122,9 +153,9 @@ export function DeviceDetailPage() {
                     <td className="px-4 py-2 uppercase text-[var(--color-text-secondary)]">
                       {p.protocol}
                     </td>
-                    <td className="px-4 py-2">{p.service_name ?? '—'}</td>
+                    <td className="px-4 py-2">{p.service_name ?? "—"}</td>
                     <td className="px-4 py-2 font-mono text-xs text-[var(--color-text-secondary)]">
-                      {p.version_banner ?? '—'}
+                      {p.version_banner ?? "—"}
                     </td>
                   </tr>
                 ))}
@@ -136,7 +167,7 @@ export function DeviceDetailPage() {
 
       {/* Risks */}
       <h2 className="mb-3 text-lg font-semibold">
-        Risks{' '}
+        Risks{" "}
         {!risksLoading && (
           <span className="text-base font-normal text-[var(--color-text-secondary)]">
             ({sortedRisks.length})
@@ -165,7 +196,7 @@ export function DeviceDetailPage() {
 
       {/* Recommendations */}
       <h2 className="mb-3 mt-6 text-lg font-semibold">
-        Recommendations{' '}
+        Recommendations{" "}
         {!recsLoading && (
           <span className="text-base font-normal text-[var(--color-text-secondary)]">
             ({recommendations.length})
@@ -192,5 +223,5 @@ export function DeviceDetailPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

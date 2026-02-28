@@ -107,7 +107,8 @@ _CATALOGUE: dict[str, _Advice] = {
         title="Disable SSH password authentication and use key-based auth",
         description=(
             "SSH servers that accept password authentication are vulnerable to brute-force "
-            "and credential-stuffing attacks. Key-based authentication is significantly more secure."
+            "and credential-stuffing attacks. Key-based authentication is significantly "
+            "more secure."
         ),
         steps=[
             "Generate an SSH key pair on the client machine if you do not already have one.",
@@ -143,7 +144,8 @@ _CATALOGUE: dict[str, _Advice] = {
         ),
         steps=[
             "Change the default administrator password on the device.",
-            "Configure a firewall rule to allow admin UI access only from trusted management hosts.",
+            "Configure a firewall rule to allow admin UI access only from trusted "
+            "management hosts.",
             "Disable remote admin access from the WAN/internet side if applicable.",
             "Check for and apply any available firmware updates.",
             "Disable unused services and protocols in the device's admin panel.",

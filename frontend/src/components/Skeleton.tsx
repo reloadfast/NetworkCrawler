@@ -5,14 +5,18 @@
 
 export interface SkeletonProps {
   /** Number of rows to render */
-  rows?: number
+  rows?: number;
   /** Height of each row in Tailwind units (e.g. '4', '6') */
-  height?: string
+  height?: string;
   /** Extra Tailwind classes forwarded to each row */
-  className?: string
+  className?: string;
 }
 
-export function Skeleton({ rows = 3, height = '4', className = '' }: SkeletonProps) {
+export function Skeleton({
+  rows = 3,
+  height = "4",
+  className = "",
+}: SkeletonProps) {
   return (
     <div
       className="flex flex-col gap-3"
@@ -28,11 +32,11 @@ export function Skeleton({ rows = 3, height = '4', className = '' }: SkeletonPro
         />
       ))}
     </div>
-  )
+  );
 }
 
 /** A skeleton row that mimics a card (rounded, full-width) */
-export function SkeletonCard({ height = '20' }: { height?: string }) {
+export function SkeletonCard({ height = "20" }: { height?: string }) {
   return (
     <div
       className={`skeleton h-${height} w-full rounded-xl`}
@@ -40,7 +44,7 @@ export function SkeletonCard({ height = '20' }: { height?: string }) {
       aria-label="Loading"
       aria-busy="true"
     />
-  )
+  );
 }
 
 /** A skeleton table — header + N body rows */
@@ -65,5 +69,5 @@ export function SkeletonTable({ rows = 5 }: { rows?: number }) {
         ))}
       </div>
     </div>
-  )
+  );
 }
