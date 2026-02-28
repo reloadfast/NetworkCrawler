@@ -24,6 +24,7 @@ from sqlalchemy.pool import StaticPool
 @pytest.fixture(scope="module")
 def db_engine():
     import app.models.device  # noqa: F401 — side-effect import registers ORM tables
+    import app.models.risk  # noqa: F401 — side-effect import registers ORM tables
     import app.models.scan  # noqa: F401 — side-effect import registers ORM tables
     from app.db import Base
 
@@ -238,3 +239,108 @@ def test_security_header_x_frame_options(client):
 def test_security_header_csp(client):
     response = client.get("/health")
     assert "default-src" in response.headers.get("content-security-policy", "")
+
+
+# ── /api/risks ────────────────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def seeded_risk(db_engine, seeded_db):
+    """Insert a Risk row tied to the seeded device and return its ID."""
+    from datetime import UTC, datetime
+
+    from app.models.risk import Risk
+
+    Session = sessionmaker(bind=db_engine)  # noqa: N806 — sessionmaker convention
+    db = Session()
+    risk = Risk(
+        device_id=seeded_db["device_id"],
+        severity="critical",
+        check_id="telnet_open",
+        title="Telnet port open",
+        description="Test risk description",
+        detected_at=datetime.now(tz=UTC),
+    )
+    db.add(risk)
+    db.commit()
+    risk_id = risk.id
+    yield {"risk_id": risk_id}
+    db.execute(__import__("sqlalchemy").delete(Risk).where(Risk.id == risk_id))
+    db.commit()
+    db.close()
+
+
+@pytest.mark.integration
+def test_list_risks_returns_list(client):
+    response = client.get("/api/risks")
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
+
+
+@pytest.mark.integration
+def test_list_risks_returns_seeded(client, seeded_risk):
+    response = client.get("/api/risks")
+    assert response.status_code == 200
+    data = response.json()
+    risk_ids = [r["id"] for r in data]
+    assert seeded_risk["risk_id"] in risk_ids
+
+
+@pytest.mark.integration
+def test_risk_schema_fields(client, seeded_risk):
+    response = client.get("/api/risks")
+    risk = next(r for r in response.json() if r["id"] == seeded_risk["risk_id"])
+    assert "id" in risk
+    assert "device_id" in risk
+    assert "severity" in risk
+    assert "check_id" in risk
+    assert "title" in risk
+    assert "description" in risk
+    assert "detected_at" in risk
+
+
+@pytest.mark.integration
+def test_get_risk_by_id(client, seeded_risk):
+    risk_id = seeded_risk["risk_id"]
+    response = client.get(f"/api/risks/{risk_id}")
+    assert response.status_code == 200
+    assert response.json()["check_id"] == "telnet_open"
+    assert response.json()["severity"] == "critical"
+
+
+@pytest.mark.integration
+def test_get_risk_not_found(client):
+    response = client.get("/api/risks/999999")
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Risk not found"
+
+
+@pytest.mark.integration
+def test_risks_summary_returns_counts(client, seeded_risk):
+    response = client.get("/api/risks/summary")
+    assert response.status_code == 200
+    data = response.json()
+    assert "critical" in data
+    assert "high" in data
+    assert "medium" in data
+    assert "low" in data
+    assert "total" in data
+    assert data["critical"] >= 1
+    assert data["total"] >= 1
+
+
+@pytest.mark.integration
+def test_device_risks_endpoint(client, seeded_db, seeded_risk):
+    device_id = seeded_db["device_id"]
+    response = client.get(f"/api/devices/{device_id}/risks")
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    risk_ids = [r["id"] for r in data]
+    assert seeded_risk["risk_id"] in risk_ids
+
+
+@pytest.mark.integration
+def test_device_risks_404_for_unknown_device(client):
+    response = client.get("/api/devices/999999/risks")
+    assert response.status_code == 404
