@@ -486,6 +486,7 @@ def test_list_risks_filter_by_severity_and_device_id(client, seeded_db, db_engin
 
 # ── #47 severity query param validation ───────────────────────────────────────
 
+
 def test_invalid_severity_returns_422(client):
     """Invalid severity value must return 422, not silently return empty list."""
     response = client.get("/api/risks?severity=bogus")
@@ -500,6 +501,7 @@ def test_valid_severities_return_200(client):
 
 
 # ── #48 malformed steps JSON in recommendations ───────────────────────────────
+
 
 def test_malformed_steps_json_returns_empty_list(client, seeded_db, seeded_risk, db_engine):
     """Recommendation with malformed steps JSON must return 200 with steps=[]."""
