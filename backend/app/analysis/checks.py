@@ -20,6 +20,15 @@ Check catalogue:
   check_mqtt_open            — port 1883 open (no TLS)        medium
   check_open_dns_resolver    — port 53 open                   medium
   check_modbus_open          — port 502 open                  high
+  check_snmp_exposed         — port 161/udp open              high
+  check_redis_exposed        — port 6379 open                 critical
+  check_docker_daemon_tcp    — port 2375 open (no TLS)        critical
+  check_docker_daemon_tls    — port 2376 open (TLS)           high
+  check_elasticsearch_open   — port 9200 open                 high
+  check_portainer_exposed    — ports 9000/9443 open           medium
+  check_home_assistant_exposed — port 8123 open               medium
+  check_tftp_open            — port 69/udp open               medium
+  check_wireguard_vpn        — port 51820/udp open            low
 """
 
 from __future__ import annotations
@@ -419,6 +428,186 @@ def check_modbus_open(device: Device) -> list[RiskData]:
     ]
 
 
+def check_snmp_exposed(device: Device) -> list[RiskData]:
+    """HIGH — SNMP (port 161/udp) open; default community string leaks device info."""
+    ports = _has_port(device, 161, protocol="udp")
+    if not ports:
+        return []
+    return [
+        RiskData(
+            check_id="snmp_exposed",
+            severity="high",
+            title="SNMP port open",
+            description=(
+                f"Device {device.ip_address} has SNMP (port 161/udp) open. "
+                "Devices using the default 'public' community string expose full device "
+                "information to anyone on the network. Change the community string or "
+                "switch to SNMPv3 with authentication and encryption."
+            ),
+        )
+    ]
+
+
+def check_redis_exposed(device: Device) -> list[RiskData]:
+    """CRITICAL — Redis (port 6379) open; no authentication by default."""
+    ports = _has_port(device, 6379)
+    if not ports:
+        return []
+    return [
+        RiskData(
+            check_id="redis_exposed",
+            severity="critical",
+            title="Redis database port open",
+            description=(
+                f"Device {device.ip_address} has Redis (port 6379/tcp) open. "
+                "Redis has no authentication enabled by default, and the CONFIG SET "
+                "command can be used to write arbitrary files and gain remote code "
+                "execution. Bind Redis to 127.0.0.1 and require a strong password."
+            ),
+        )
+    ]
+
+
+def check_docker_daemon_tcp(device: Device) -> list[RiskData]:
+    """CRITICAL — Docker TCP daemon (port 2375) open; unauthenticated API."""
+    ports = _has_port(device, 2375)
+    if not ports:
+        return []
+    return [
+        RiskData(
+            check_id="docker_daemon_tcp",
+            severity="critical",
+            title="Docker daemon exposed without TLS",
+            description=(
+                f"Device {device.ip_address} has the Docker daemon API (port 2375/tcp) "
+                "open without TLS. This allows anyone on the network to run containers, "
+                "mount the host filesystem, and gain full root access to the host. "
+                "Disable the TCP listener or enable TLS client authentication immediately."
+            ),
+        )
+    ]
+
+
+def check_docker_daemon_tls(device: Device) -> list[RiskData]:
+    """HIGH — Docker TLS daemon (port 2376) open; verify TLS is properly configured."""
+    ports = _has_port(device, 2376)
+    if not ports:
+        return []
+    return [
+        RiskData(
+            check_id="docker_daemon_tls",
+            severity="high",
+            title="Docker daemon TLS port open",
+            description=(
+                f"Device {device.ip_address} has the Docker daemon TLS port (2376/tcp) "
+                "open. While TLS is required on this port, it still exposes the Docker "
+                "API remotely. Verify that client certificate authentication is enforced "
+                "and restrict access to trusted hosts only."
+            ),
+        )
+    ]
+
+
+def check_elasticsearch_open(device: Device) -> list[RiskData]:
+    """HIGH — Elasticsearch HTTP (port 9200) open; historically unauthenticated."""
+    ports = _has_port(device, 9200)
+    if not ports:
+        return []
+    return [
+        RiskData(
+            check_id="elasticsearch_open",
+            severity="high",
+            title="Elasticsearch HTTP port open",
+            description=(
+                f"Device {device.ip_address} has Elasticsearch (port 9200/tcp) open. "
+                "Older versions of Elasticsearch had no authentication, leading to "
+                "widespread data breaches. Ensure X-Pack security is enabled, require "
+                "authentication, and restrict network access to trusted hosts."
+            ),
+        )
+    ]
+
+
+def check_portainer_exposed(device: Device) -> list[RiskData]:
+    """MEDIUM — Portainer admin UI (ports 9000/9443) open."""
+    ports = _has_port(device, 9000) + _has_port(device, 9443)
+    if not ports:
+        return []
+    port_list = ", ".join(str(p.port_number) for p in ports)
+    return [
+        RiskData(
+            check_id="portainer_exposed",
+            severity="medium",
+            title="Portainer Docker management UI exposed",
+            description=(
+                f"Device {device.ip_address} has Portainer (port(s) {port_list}) open. "
+                "Portainer provides a web UI for managing the entire Docker stack. "
+                "Ensure a strong admin password is set, enable HTTPS only, and restrict "
+                "access to trusted hosts with a firewall rule."
+            ),
+        )
+    ]
+
+
+def check_home_assistant_exposed(device: Device) -> list[RiskData]:
+    """MEDIUM — Home Assistant (port 8123) open on the LAN."""
+    ports = _has_port(device, 8123)
+    if not ports:
+        return []
+    return [
+        RiskData(
+            check_id="home_assistant_exposed",
+            severity="medium",
+            title="Home Assistant web interface exposed",
+            description=(
+                f"Device {device.ip_address} has Home Assistant (port 8123/tcp) open. "
+                "Home Assistant controls smart home devices and may have access to "
+                "locks, cameras, and alarms. Ensure a strong password is set, enable "
+                "two-factor authentication, and avoid exposing this port to the internet."
+            ),
+        )
+    ]
+
+
+def check_tftp_open(device: Device) -> list[RiskData]:
+    """MEDIUM — TFTP (port 69/udp) open; no authentication protocol."""
+    ports = _has_port(device, 69, protocol="udp")
+    if not ports:
+        return []
+    return [
+        RiskData(
+            check_id="tftp_open",
+            severity="medium",
+            title="TFTP port open",
+            description=(
+                f"Device {device.ip_address} has TFTP (port 69/udp) open. "
+                "TFTP (Trivial File Transfer Protocol) has no authentication mechanism "
+                "and transfers files in plaintext. It is commonly used for network "
+                "booting and router firmware — disable it if not actively needed."
+            ),
+        )
+    ]
+
+
+def check_wireguard_vpn(device: Device) -> list[RiskData]:
+    """LOW — WireGuard VPN (port 51820/udp) detected; informational."""
+    ports = _has_port(device, 51820, protocol="udp")
+    if not ports:
+        return []
+    return [
+        RiskData(
+            check_id="wireguard_vpn",
+            severity="low",
+            title="WireGuard VPN port open",
+            description=(
+                f"Device {device.ip_address} has WireGuard VPN (port 51820/udp) open. "
+                "This is informational — WireGuard is a modern, secure VPN protocol. "
+                "Ensure only authorised peers are configured and keep WireGuard updated."
+            ),
+        )
+    ]
+
+
 # ── Master list of all checks ─────────────────────────────────────────────────
 
 ALL_CHECKS = [
@@ -435,4 +624,13 @@ ALL_CHECKS = [
     check_mqtt_open,
     check_open_dns_resolver,
     check_modbus_open,
+    check_snmp_exposed,
+    check_redis_exposed,
+    check_docker_daemon_tcp,
+    check_docker_daemon_tls,
+    check_elasticsearch_open,
+    check_portainer_exposed,
+    check_home_assistant_exposed,
+    check_tftp_open,
+    check_wireguard_vpn,
 ]

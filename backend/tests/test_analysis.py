@@ -439,6 +439,166 @@ def test_check_modbus_open_returns_risk():
     assert results[0].severity == "high"
 
 
+# ── check_snmp_exposed ────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_check_snmp_exposed_fires_on_port_161_udp():
+    from app.analysis.checks import check_snmp_exposed
+
+    device = _make_device(ports=[_make_port(161, protocol="udp")])
+    results = check_snmp_exposed(device)
+    assert len(results) == 1
+    assert results[0].check_id == "snmp_exposed"
+    assert results[0].severity == "high"
+
+
+@pytest.mark.unit
+def test_check_snmp_exposed_no_false_positive_tcp():
+    from app.analysis.checks import check_snmp_exposed
+
+    device = _make_device(ports=[_make_port(161, protocol="tcp")])
+    assert check_snmp_exposed(device) == []
+
+
+# ── check_redis_exposed ───────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_check_redis_exposed_fires_on_port_6379():
+    from app.analysis.checks import check_redis_exposed
+
+    device = _make_device(ports=[_make_port(6379)])
+    results = check_redis_exposed(device)
+    assert len(results) == 1
+    assert results[0].check_id == "redis_exposed"
+    assert results[0].severity == "critical"
+
+
+# ── check_docker_daemon_tcp ───────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_check_docker_daemon_tcp_fires_on_port_2375():
+    from app.analysis.checks import check_docker_daemon_tcp
+
+    device = _make_device(ports=[_make_port(2375)])
+    results = check_docker_daemon_tcp(device)
+    assert len(results) == 1
+    assert results[0].check_id == "docker_daemon_tcp"
+    assert results[0].severity == "critical"
+
+
+# ── check_docker_daemon_tls ───────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_check_docker_daemon_tls_fires_on_port_2376():
+    from app.analysis.checks import check_docker_daemon_tls
+
+    device = _make_device(ports=[_make_port(2376)])
+    results = check_docker_daemon_tls(device)
+    assert len(results) == 1
+    assert results[0].check_id == "docker_daemon_tls"
+    assert results[0].severity == "high"
+
+
+# ── check_elasticsearch_open ──────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_check_elasticsearch_open_fires_on_port_9200():
+    from app.analysis.checks import check_elasticsearch_open
+
+    device = _make_device(ports=[_make_port(9200)])
+    results = check_elasticsearch_open(device)
+    assert len(results) == 1
+    assert results[0].check_id == "elasticsearch_open"
+    assert results[0].severity == "high"
+
+
+# ── check_portainer_exposed ───────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_check_portainer_exposed_fires_on_port_9000():
+    from app.analysis.checks import check_portainer_exposed
+
+    device = _make_device(ports=[_make_port(9000)])
+    results = check_portainer_exposed(device)
+    assert len(results) == 1
+    assert results[0].check_id == "portainer_exposed"
+    assert results[0].severity == "medium"
+
+
+@pytest.mark.unit
+def test_check_portainer_exposed_fires_on_port_9443():
+    from app.analysis.checks import check_portainer_exposed
+
+    device = _make_device(ports=[_make_port(9443)])
+    results = check_portainer_exposed(device)
+    assert len(results) == 1
+    assert results[0].check_id == "portainer_exposed"
+
+
+# ── check_home_assistant_exposed ──────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_check_home_assistant_exposed_fires_on_port_8123():
+    from app.analysis.checks import check_home_assistant_exposed
+
+    device = _make_device(ports=[_make_port(8123)])
+    results = check_home_assistant_exposed(device)
+    assert len(results) == 1
+    assert results[0].check_id == "home_assistant_exposed"
+    assert results[0].severity == "medium"
+
+
+# ── check_tftp_open ───────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_check_tftp_open_fires_on_port_69_udp():
+    from app.analysis.checks import check_tftp_open
+
+    device = _make_device(ports=[_make_port(69, protocol="udp")])
+    results = check_tftp_open(device)
+    assert len(results) == 1
+    assert results[0].check_id == "tftp_open"
+    assert results[0].severity == "medium"
+
+
+@pytest.mark.unit
+def test_check_tftp_open_no_false_positive_tcp():
+    from app.analysis.checks import check_tftp_open
+
+    device = _make_device(ports=[_make_port(69, protocol="tcp")])
+    assert check_tftp_open(device) == []
+
+
+# ── check_wireguard_vpn ───────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_check_wireguard_vpn_fires_on_port_51820_udp():
+    from app.analysis.checks import check_wireguard_vpn
+
+    device = _make_device(ports=[_make_port(51820, protocol="udp")])
+    results = check_wireguard_vpn(device)
+    assert len(results) == 1
+    assert results[0].check_id == "wireguard_vpn"
+    assert results[0].severity == "low"
+
+
+@pytest.mark.unit
+def test_check_wireguard_vpn_no_false_positive_tcp():
+    from app.analysis.checks import check_wireguard_vpn
+
+    device = _make_device(ports=[_make_port(51820, protocol="tcp")])
+    assert check_wireguard_vpn(device) == []
+
+
 # ── Integration: run_checks with real DB ─────────────────────────────────────
 
 

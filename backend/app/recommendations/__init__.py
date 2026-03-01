@@ -253,6 +253,155 @@ _CATALOGUE: dict[str, _Advice] = {
         effort="medium",
         impact="high",
     ),
+    "snmp_exposed": _Advice(
+        title="Secure or disable SNMP",
+        description=(
+            "SNMP with the default 'public' community string leaks full device information "
+            "to anyone on the network. Upgrade to SNMPv3 or disable SNMP entirely."
+        ),
+        steps=[
+            "Log in to the device management interface.",
+            "Locate the SNMP configuration section.",
+            "If SNMP is not required, disable it completely.",
+            "If SNMP is needed, change the community string from 'public' "
+            "to a strong random value.",
+            "Upgrade to SNMPv3 with AuthPriv mode (authentication + encryption) where supported.",
+            "Restrict SNMP access to specific management hosts using an ACL.",
+        ],
+        effort="low",
+        impact="high",
+    ),
+    "redis_exposed": _Advice(
+        title="Bind Redis to localhost and require authentication",
+        description=(
+            "An unauthenticated Redis instance accessible from the network is a critical "
+            "vulnerability enabling data theft and remote code execution via CONFIG commands."
+        ),
+        steps=[
+            "Edit redis.conf and set 'bind 127.0.0.1' to restrict listening to localhost only.",
+            "Set a strong password: 'requirepass <strong-password>'.",
+            "If Redis must be network-accessible, use TLS (Redis 6+) and require authentication.",
+            "Apply a firewall rule to block port 6379 from all but authorised hosts.",
+            "Restart Redis and verify the configuration with 'redis-cli ping' from a remote host.",
+        ],
+        effort="low",
+        impact="critical",
+    ),
+    "docker_daemon_tcp": _Advice(
+        title="Disable the unauthenticated Docker TCP socket",
+        description=(
+            "The Docker TCP daemon without TLS allows anyone to run containers, mount the "
+            "host filesystem, and gain root access. This must be remediated immediately."
+        ),
+        steps=[
+            "Edit /etc/docker/daemon.json and remove or comment out the 'hosts' entry for tcp://.",
+            "If remote Docker access is required, configure TLS with client "
+            "certificates instead "
+            "(dockerd --tlsverify --tlscacert=ca.pem "
+            "--tlscert=server-cert.pem --tlskey=server-key.pem).",
+            "Restart Docker: 'sudo systemctl restart docker'.",
+            "Apply a firewall rule to block port 2375 immediately as a temporary measure.",
+            "Verify the TCP socket is no longer listening with 'ss -tlnp | grep 2375'.",
+        ],
+        effort="low",
+        impact="critical",
+    ),
+    "docker_daemon_tls": _Advice(
+        title="Restrict Docker TLS daemon access",
+        description=(
+            "The Docker TLS daemon port exposes the full Docker API remotely. "
+            "Verify that mutual TLS client authentication is enforced and access is restricted."
+        ),
+        steps=[
+            "Confirm TLS is configured with --tlsverify and a CA, server cert, and server key.",
+            "Ensure --tlsverify is set so only clients with a valid certificate can connect.",
+            "Apply a firewall rule to allow port 2376 only from trusted management hosts.",
+            "Rotate certificates periodically and revoke access for unused clients.",
+        ],
+        effort="medium",
+        impact="high",
+    ),
+    "elasticsearch_open": _Advice(
+        title="Enable Elasticsearch authentication and restrict network access",
+        description=(
+            "Elasticsearch without authentication has led to numerous data breaches. "
+            "Enable X-Pack security and restrict network access."
+        ),
+        steps=[
+            "Enable X-Pack security in elasticsearch.yml: 'xpack.security.enabled: true'.",
+            "Set passwords for built-in users: 'bin/elasticsearch-setup-passwords interactive'.",
+            "Configure TLS for inter-node and client communication.",
+            "Apply a firewall rule to allow port 9200 only from authorised application hosts.",
+            "Review cluster settings to confirm no anonymous access is permitted.",
+        ],
+        effort="medium",
+        impact="high",
+    ),
+    "portainer_exposed": _Advice(
+        title="Secure Portainer and restrict network access",
+        description=(
+            "Portainer controls your entire Docker environment. A compromised Portainer "
+            "instance gives full access to all running containers and the host."
+        ),
+        steps=[
+            "Set a strong admin password if not already done (Portainer will prompt on first run).",
+            "Enable HTTPS-only access — disable port 9000 (HTTP) and use 9443 (HTTPS) only.",
+            "Apply a firewall rule to allow Portainer ports only from trusted management hosts.",
+            "Consider placing Portainer behind a VPN or SSH tunnel.",
+            "Enable two-factor authentication in Portainer settings if available.",
+        ],
+        effort="low",
+        impact="medium",
+    ),
+    "home_assistant_exposed": _Advice(
+        title="Secure Home Assistant and enable 2FA",
+        description=(
+            "Home Assistant controls smart home devices. Ensure it is properly secured "
+            "against unauthorised access from the local network."
+        ),
+        steps=[
+            "Enable two-factor authentication (TOTP) in your Home Assistant profile settings.",
+            "Set a strong password for all user accounts.",
+            "Apply a firewall rule or network policy to restrict port 8123 to trusted devices.",
+            "If remote access is needed, use the Nabu Casa cloud service or a VPN rather than "
+            "direct port forwarding.",
+            "Keep Home Assistant updated to receive security patches.",
+        ],
+        effort="low",
+        impact="medium",
+    ),
+    "tftp_open": _Advice(
+        title="Disable TFTP if not actively required",
+        description=(
+            "TFTP has no authentication and transfers files in plaintext. "
+            "Disable it unless it is actively used for network booting or firmware updates."
+        ),
+        steps=[
+            "Identify the service using TFTP (port 69/udp) — "
+            "common culprits: tftpd, dnsmasq, routers.",
+            "If TFTP is not required, disable or stop the service.",
+            "If TFTP is needed (e.g., PXE booting), restrict access to specific client IPs.",
+            "Apply a firewall rule to block port 69/udp from untrusted network segments.",
+        ],
+        effort="low",
+        impact="medium",
+    ),
+    "wireguard_vpn": _Advice(
+        title="Review WireGuard peer configuration",
+        description=(
+            "WireGuard is a secure VPN protocol. This entry is informational — "
+            "verify the peer list and keep WireGuard updated."
+        ),
+        steps=[
+            "Review the WireGuard configuration (/etc/wireguard/*.conf) for authorised peers only.",
+            "Remove any stale or unused peer entries.",
+            "Ensure the WireGuard package is kept up to date.",
+            "Consider using a non-default port if the VPN endpoint "
+            "should not be easily discoverable.",
+        ],
+        effort="low",
+        impact="low",
+    ),
 }
 
 
