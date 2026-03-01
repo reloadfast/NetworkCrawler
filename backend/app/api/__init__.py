@@ -246,9 +246,7 @@ def risks_summary(db: Annotated[Session, Depends(get_db)]) -> RiskSummary:
     """Return a count of active (non-acknowledged) risks per severity level."""
     from app.models.risk import Risk
 
-    all_risks = db.execute(
-        select(Risk).where(Risk.acknowledged_at.is_(None))
-    ).scalars().all()
+    all_risks = db.execute(select(Risk).where(Risk.acknowledged_at.is_(None))).scalars().all()
     counts: dict[str, int] = {"critical": 0, "high": 0, "medium": 0, "low": 0}
     for r in all_risks:
         if r.severity in counts:
