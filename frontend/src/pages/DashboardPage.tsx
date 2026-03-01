@@ -2,7 +2,7 @@
  * DashboardPage — summary cards, last scan info, and quick-trigger button.
  * Route: /
  */
-import React, { memo, useState } from "react";
+import React, { memo, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Card,
@@ -16,6 +16,7 @@ import {
 import { useDevices, useScans, useTriggerScan, useRiskSummary } from "../hooks";
 import { useScanStatus } from "../hooks/useScanStatus";
 import { useToast } from "../hooks/useToast";
+import type { PostureBadge } from "../types/api";
 
 // ── Accent stripe colours per stat card ───────────────────────────────────────
 const STRIPE: Record<string, string> = {
@@ -103,6 +104,59 @@ function ShieldIcon() {
   );
 }
 
+// ── Posture badge (from Network Health Checklist) ─────────────────────────────
+
+const POSTURE_DASH: Record<
+  PostureBadge,
+  { label: string; color: string; bg: string; icon: string }
+> = {
+  at_risk: {
+    label: "At Risk",
+    color: "text-[var(--color-accent-danger)]",
+    bg: "bg-[var(--color-accent-danger)]/10",
+    icon: "🔴",
+  },
+  basic: {
+    label: "Basic",
+    color: "text-[var(--color-accent-warning)]",
+    bg: "bg-[var(--color-accent-warning)]/10",
+    icon: "🟡",
+  },
+  intermediate: {
+    label: "Intermediate",
+    color: "text-[var(--color-accent-positive)]",
+    bg: "bg-[var(--color-accent-positive)]/10",
+    icon: "🟢",
+  },
+  hardened: {
+    label: "Hardened",
+    color: "text-[var(--color-accent-primary)]",
+    bg: "bg-[var(--color-accent-primary)]/10",
+    icon: "🛡️",
+  },
+};
+
+function usePostureBadge() {
+  const [posture, setPosture] = useState<PostureBadge | null>(null);
+  const [yesCount, setYesCount] = useState(0);
+  const [total, setTotal] = useState(0);
+
+  useEffect(() => {
+    fetch("/api/settings/checklist")
+      .then((r) => r.json())
+      .then(
+        (d: { posture: PostureBadge; yes_count: number; items: unknown[] }) => {
+          setPosture(d.posture);
+          setYesCount(d.yes_count);
+          setTotal(d.items.length);
+        },
+      )
+      .catch(() => {});
+  }, []);
+
+  return { posture, yesCount, total };
+}
+
 const StatCard = memo(function StatCard({
   label,
   value,
@@ -157,6 +211,7 @@ export function DashboardPage() {
   const { isRunning, latestScan: runningScan } = useScanStatus();
   const { toasts, addToast, dismissToast } = useToast();
   const [scanStartedId, setScanStartedId] = useState<number | null>(null);
+  const { posture, yesCount, total } = usePostureBadge();
 
   const lastScan = scans[0] ?? null;
   const loading = devLoading || scanLoading || summaryLoading;
@@ -293,6 +348,34 @@ export function DashboardPage() {
               to="/devices"
             />
           </div>
+
+          {/* Network posture banner */}
+          {posture && (
+            <Link to="/settings" className="block mb-6">
+              <div
+                className={`flex items-center justify-between rounded-lg px-4 py-3 ${POSTURE_DASH[posture].bg} transition-opacity hover:opacity-80`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-xl" aria-hidden="true">
+                    {POSTURE_DASH[posture].icon}
+                  </span>
+                  <div>
+                    <p
+                      className={`text-sm font-semibold ${POSTURE_DASH[posture].color}`}
+                    >
+                      Network Posture: {POSTURE_DASH[posture].label}
+                    </p>
+                    <p className="text-xs text-[var(--color-text-secondary)]">
+                      {yesCount} of {total} hygiene checks confirmed
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs text-[var(--color-text-secondary)]">
+                  Review checklist →
+                </span>
+              </div>
+            </Link>
+          )}
 
           {/* Last scan */}
           <Card className="mb-6">
