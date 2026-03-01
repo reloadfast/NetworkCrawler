@@ -62,6 +62,9 @@ def init_db() -> None:
     from app.models import risk as _risk  # noqa: F401 — side-effect import registers ORM tables
     from app.models import scan as _scan  # noqa: F401 — side-effect import registers ORM tables
     from app.models import (
+        scan_event as _scan_event,  # noqa: F401 — side-effect import registers ORM tables
+    )
+    from app.models import (
         settings as _settings,  # noqa: F401 — side-effect import registers ORM tables
     )
 

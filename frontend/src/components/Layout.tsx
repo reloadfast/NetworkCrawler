@@ -7,6 +7,7 @@ import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useTheme } from "../hooks";
 import { useAppVersion } from "../hooks/useAppVersion";
+import { useChangesSummary } from "../hooks/useChanges";
 
 /** Copy text to clipboard; works on HTTP as well as HTTPS. */
 function copyViaExecCommand(text: string): void {
@@ -24,6 +25,7 @@ const navLinks = [
   { to: "/", label: "Dashboard", end: true },
   { to: "/devices", label: "Devices", end: false },
   { to: "/risks", label: "Risks", end: false },
+  { to: "/changes", label: "Changes", end: false },
   { to: "/history", label: "History", end: false },
   { to: "/recommendations", label: "Recommendations", end: false },
   { to: "/docs", label: "Docs", end: false },
@@ -101,6 +103,7 @@ function NetworkIcon() {
 export function Layout() {
   const { theme, toggleTheme } = useTheme();
   const { version } = useAppVersion();
+  const { unreviewed } = useChangesSummary();
   const [copied, setCopied] = useState(false);
 
   const handleCopyVersion = () => {
@@ -157,7 +160,7 @@ export function Layout() {
                   end={end}
                   className={({ isActive }) =>
                     [
-                      "rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150",
+                      "relative rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150",
                       isActive
                         ? "bg-[var(--color-accent-primary)]/10 text-[var(--color-accent-primary)]"
                         : "text-[var(--color-text-secondary)] hover:bg-[var(--color-border)]/40 hover:text-[var(--color-text-primary)]",
@@ -165,6 +168,11 @@ export function Layout() {
                   }
                 >
                   {label}
+                  {label === "Changes" && unreviewed > 0 && (
+                    <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-accent-primary)] px-1 text-[10px] font-bold text-white">
+                      {unreviewed > 99 ? "99+" : unreviewed}
+                    </span>
+                  )}
                 </NavLink>
               ))}
             </nav>

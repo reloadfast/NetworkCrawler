@@ -6,8 +6,10 @@ Called by both the APScheduler background job and the manual-trigger endpoint.
 
 from __future__ import annotations
 
+import json
 import logging
 import time
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
@@ -16,6 +18,16 @@ from app.db import SessionLocal, upsert_device, upsert_port
 from app.scanner import ScanResult, orchestrate_scan
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class _PersistSummary:
+    """Summary of what changed during a single call to _persist_result."""
+
+    new_device_ids: list[int] = field(default_factory=list)
+    disappeared_ips: list[str] = field(default_factory=list)
+    # keys: device_id, event_type, port_number, protocol, service_name
+    port_events: list[dict] = field(default_factory=list)
 
 
 def run_scan_and_persist(triggered_by: str = "scheduler") -> int:
@@ -41,26 +53,41 @@ def run_scan_and_persist(triggered_by: str = "scheduler") -> int:
         db.commit()
 
         result: ScanResult = orchestrate_scan()
-        new_device_ids = _persist_result(db, result)
+        summary = _persist_result(db, result)
+
         devices_found = len(result.hosts) + len(result.arp_only)
 
         scan.current_stage = "analysing"
         db.commit()
 
         # Run misconfiguration checks against all discovered devices
+        from sqlalchemy import select as sa_select
+
         from app.analysis import (
             run_all_checks,  # noqa: PLC0415 — deferred to avoid circular import at module level
         )
-
-        run_all_checks(db)
-
-        # Snapshot risk counts for trend tracking
-        from sqlalchemy import func as sqlfunc
-        from sqlalchemy import select as sa_select
-
         from app.models.risk import (
             Risk,  # noqa: PLC0415 — deferred to avoid circular import at module level
         )
+
+        # Snapshot existing risks (before checks run) so we can detect changes
+        pre_risks = {
+            (r.device_id, r.check_id): (r.title, r.severity)
+            for r in db.execute(sa_select(Risk)).scalars().all()
+        }
+
+        run_all_checks(db)
+
+        post_risks = {
+            (r.device_id, r.check_id): (r.title, r.severity)
+            for r in db.execute(sa_select(Risk)).scalars().all()
+        }
+
+        # Record all change events for this scan
+        _record_scan_events(db, scan_id, summary, pre_risks, post_risks)
+
+        # Snapshot risk counts for trend tracking
+        from sqlalchemy import func as sqlfunc
 
         risk_counts: dict[str, int] = {"critical": 0, "high": 0, "medium": 0, "low": 0}
         for sev in risk_counts:
@@ -86,7 +113,7 @@ def run_scan_and_persist(triggered_by: str = "scheduler") -> int:
         notify_scan_complete(
             db,
             scan_id=scan_id,
-            new_device_ids=new_device_ids,
+            new_device_ids=summary.new_device_ids,
             risk_counts=risk_counts,
         )
 
@@ -117,22 +144,30 @@ def run_scan_and_persist(triggered_by: str = "scheduler") -> int:
     return scan_id
 
 
-def _persist_result(db: Session, result: ScanResult) -> list[int]:
+def _persist_result(db: Session, result: ScanResult) -> _PersistSummary:
     """Upsert all devices and ports from a ScanResult into the database.
 
-    Returns a list of device IDs that were newly created in this scan.
+    Returns a _PersistSummary with new device IDs, disappeared IPs, and port events.
     """
     from sqlalchemy import select
 
     from app.models.device import Device as DeviceModel
     from app.models.device import Port
 
-    # Snapshot existing IPs before upserting so we can detect brand-new devices
+    # Snapshot existing state before upserting
     existing_ips: set[str] = {row[0] for row in db.execute(select(DeviceModel.ip_address)).all()}
-    new_device_ids: list[int] = []
+
+    # Snapshot existing ports per device for change detection
+    pre_ports: dict[int, set[tuple[int, str]]] = {}
+    for device_row in db.execute(select(DeviceModel)).scalars().all():
+        pre_ports[device_row.id] = {(p.port_number, p.protocol) for p in device_row.ports}
+
+    summary = _PersistSummary()
+    scanned_ips: set[str] = set()
 
     # Full nmap results
     for nh in result.hosts:
+        scanned_ips.add(nh.ip)
         device = upsert_device(
             db,
             ip_address=nh.ip,
@@ -142,9 +177,11 @@ def _persist_result(db: Session, result: ScanResult) -> list[int]:
         )
         db.flush()
         if nh.ip not in existing_ips:
-            new_device_ids.append(device.id)
+            summary.new_device_ids.append(device.id)
 
         current_ports = {(p.port_number, p.protocol) for p in nh.ports}
+        old_ports = pre_ports.get(device.id, set())
+
         for port in nh.ports:
             upsert_port(
                 db,
@@ -155,6 +192,32 @@ def _persist_result(db: Session, result: ScanResult) -> list[int]:
                 version_banner=port.version_banner or None,
             )
 
+        # Detect newly opened ports (only for existing devices)
+        if nh.ip in existing_ips:
+            for port_key in current_ports - old_ports:
+                port_obj = next(
+                    (p for p in nh.ports if (p.port_number, p.protocol) == port_key), None
+                )
+                summary.port_events.append(
+                    {
+                        "device_id": device.id,
+                        "event_type": "port_opened",
+                        "port_number": port_key[0],
+                        "protocol": port_key[1],
+                        "service_name": port_obj.service_name if port_obj else None,
+                    }
+                )
+            for port_key in old_ports - current_ports:
+                summary.port_events.append(
+                    {
+                        "device_id": device.id,
+                        "event_type": "port_closed",
+                        "port_number": port_key[0],
+                        "protocol": port_key[1],
+                        "service_name": None,
+                    }
+                )
+
         # Remove ports no longer seen in this scan
         existing_ports = db.execute(select(Port).where(Port.device_id == device.id)).scalars().all()
         for existing in existing_ports:
@@ -163,6 +226,7 @@ def _persist_result(db: Session, result: ScanResult) -> list[int]:
 
     # ARP-only hosts (no nmap data)
     for ah in result.arp_only:
+        scanned_ips.add(ah.ip)
         device = upsert_device(
             db,
             ip_address=ah.ip,
@@ -171,7 +235,132 @@ def _persist_result(db: Session, result: ScanResult) -> list[int]:
         )
         db.flush()
         if ah.ip not in existing_ips:
-            new_device_ids.append(device.id)
+            summary.new_device_ids.append(device.id)
+
+    # Detect disappeared devices (were in DB, not found in this scan)
+    summary.disappeared_ips = list(existing_ips - scanned_ips)
 
     db.commit()
-    return new_device_ids
+    return summary
+
+
+def _record_scan_events(
+    db: Session,
+    scan_id: int,
+    summary: _PersistSummary,
+    pre_risks: dict[tuple[int, str], tuple[str, str]],
+    post_risks: dict[tuple[int, str], tuple[str, str]],
+) -> None:
+    """Insert ScanEvent rows for all detected changes."""
+    from sqlalchemy import select
+
+    from app.models.device import Device as DeviceModel
+    from app.models.scan_event import ScanEvent
+
+    now = datetime.now(tz=UTC)
+    events: list[ScanEvent] = []
+
+    # device_appeared
+    if summary.new_device_ids:
+        devices = (
+            db.execute(select(DeviceModel).where(DeviceModel.id.in_(summary.new_device_ids)))
+            .scalars()
+            .all()
+        )
+        for d in devices:
+            events.append(
+                ScanEvent(
+                    scan_id=scan_id,
+                    device_id=d.id,
+                    event_type="device_appeared",
+                    detail=json.dumps(
+                        {
+                            "ip": d.ip_address,
+                            "hostname": d.hostname,
+                            "mac": d.mac_address,
+                            "vendor": d.vendor,
+                        }
+                    ),
+                    occurred_at=now,
+                )
+            )
+
+    # device_disappeared
+    if summary.disappeared_ips:
+        devices = (
+            db.execute(
+                select(DeviceModel).where(DeviceModel.ip_address.in_(summary.disappeared_ips))
+            )
+            .scalars()
+            .all()
+        )
+        for d in devices:
+            events.append(
+                ScanEvent(
+                    scan_id=scan_id,
+                    device_id=d.id,
+                    event_type="device_disappeared",
+                    detail=json.dumps(
+                        {
+                            "ip": d.ip_address,
+                            "hostname": d.hostname,
+                            "label": d.label,
+                            "last_seen": d.last_seen.isoformat() if d.last_seen else None,
+                        }
+                    ),
+                    occurred_at=now,
+                )
+            )
+
+    # port_opened / port_closed
+    for pe in summary.port_events:
+        events.append(
+            ScanEvent(
+                scan_id=scan_id,
+                device_id=pe["device_id"],
+                event_type=pe["event_type"],
+                detail=json.dumps(
+                    {
+                        "port": pe["port_number"],
+                        "protocol": pe["protocol"],
+                        "service": pe["service_name"],
+                    }
+                ),
+                occurred_at=now,
+            )
+        )
+
+    # risk_appeared / risk_resolved
+    appeared_keys = set(post_risks) - set(pre_risks)
+    resolved_keys = set(pre_risks) - set(post_risks)
+
+    for key in appeared_keys:
+        device_id, check_id = key
+        title, severity = post_risks[key]
+        events.append(
+            ScanEvent(
+                scan_id=scan_id,
+                device_id=device_id,
+                event_type="risk_appeared",
+                detail=json.dumps({"check_id": check_id, "title": title, "severity": severity}),
+                occurred_at=now,
+            )
+        )
+
+    for key in resolved_keys:
+        device_id, check_id = key
+        title, severity = pre_risks[key]
+        events.append(
+            ScanEvent(
+                scan_id=scan_id,
+                device_id=device_id,
+                event_type="risk_resolved",
+                detail=json.dumps({"check_id": check_id, "title": title, "severity": severity}),
+                occurred_at=now,
+            )
+        )
+
+    if events:
+        db.add_all(events)
+        db.commit()
+        logger.info("Scan %d: recorded %d change events", scan_id, len(events))
