@@ -608,6 +608,128 @@ def check_wireguard_vpn(device: Device) -> list[RiskData]:
     ]
 
 
+# ── Compound / pattern-based checks ──────────────────────────────────────────
+
+
+def check_multiple_admin_panels(device: Device) -> list[RiskData]:
+    """MEDIUM — 3+ management ports open; unusually large admin surface."""
+    admin_ports = _has_port(device, 80, 8080, 8443, 9000, 9443, 9200, 5900, 3389, 22)
+    if len(admin_ports) < 3:  # noqa: PLR2004 — 3 is the meaningful threshold
+        return []
+    port_list = ", ".join(str(p.port_number) for p in admin_ports)
+    return [
+        RiskData(
+            check_id="multiple_admin_panels",
+            severity="medium",
+            title="Multiple admin/management ports open",
+            description=(
+                f"Device {device.ip_address} has {len(admin_ports)} management or "
+                f"admin ports open simultaneously ({port_list}). "
+                "Each extra management interface is an additional attack surface. "
+                "Disable any admin panels or remote-access services that are not "
+                "actively required."
+            ),
+        )
+    ]
+
+
+def check_database_and_web_exposed(device: Device) -> list[RiskData]:
+    """HIGH — database port open alongside a public-facing web port."""
+    db_ports = _has_port(device, 3306, 5432, 6379, 27017, 1433, 5984)
+    web_ports = _has_port(device, 80, 8080)
+    if not db_ports or not web_ports:
+        return []
+    db_list = ", ".join(str(p.port_number) for p in db_ports)
+    web_list = ", ".join(str(p.port_number) for p in web_ports)
+    return [
+        RiskData(
+            check_id="database_and_web_exposed",
+            severity="high",
+            title="Database and unencrypted web port open together",
+            description=(
+                f"Device {device.ip_address} has database port(s) ({db_list}) open "
+                f"alongside unencrypted web port(s) ({web_list}). "
+                "An attacker who exploits the web layer may pivot directly to the "
+                "database. The database port should not be network-accessible, and "
+                "all web traffic should be served over HTTPS."
+            ),
+        )
+    ]
+
+
+def check_cleartext_credential_surface(device: Device) -> list[RiskData]:
+    """HIGH — Telnet, FTP, and HTTP all open; maximum cleartext exposure."""
+    telnet = _has_port(device, 23)
+    ftp = _has_port(device, 21)
+    http = _has_port(device, 80)
+    if not (telnet and ftp and http):
+        return []
+    return [
+        RiskData(
+            check_id="cleartext_credential_surface",
+            severity="high",
+            title="Cleartext credential surface (Telnet + FTP + HTTP all open)",
+            description=(
+                f"Device {device.ip_address} has Telnet (23), FTP (21), and HTTP (80) "
+                "all open simultaneously. Every one of these protocols transmits "
+                "credentials and data in plaintext. An attacker on the same network "
+                "can capture login credentials with a passive packet capture. "
+                "Disable all three and replace with SSH, SFTP/SCP, and HTTPS."
+            ),
+        )
+    ]
+
+
+def check_remote_access_no_encryption(device: Device) -> list[RiskData]:
+    """HIGH — RDP or VNC open with no TLS service detected on the device."""
+    rdp = _has_port(device, 3389)
+    vnc = _has_port(device, 5900)
+    if not (rdp or vnc):
+        return []
+    # If any TLS-capable port is open, the device at least has *some* encrypted path
+    tls_ports = _has_port(device, 443, 8443, 22)
+    if tls_ports:
+        return []
+    remote_list = ", ".join(str(p.port_number) for p in (rdp + vnc))
+    return [
+        RiskData(
+            check_id="remote_access_no_encryption",
+            severity="high",
+            title="Remote desktop open with no encrypted alternative",
+            description=(
+                f"Device {device.ip_address} has remote access port(s) ({remote_list}) "
+                "open and no TLS-encrypted service (443/8443/22) detected. "
+                "RDP and VNC can leak screen content and credentials if not tunnelled "
+                "through an encrypted channel such as SSH or a VPN. "
+                "Disable direct RDP/VNC exposure and access the device via a VPN or "
+                "SSH tunnel instead."
+            ),
+        )
+    ]
+
+
+def check_ssh_and_telnet_both_open(device: Device) -> list[RiskData]:
+    """MEDIUM — SSH and Telnet both open; Telnet likely a forgotten legacy service."""
+    ssh = _has_port(device, 22)
+    telnet = _has_port(device, 23)
+    if not (ssh and telnet):
+        return []
+    return [
+        RiskData(
+            check_id="ssh_and_telnet_both_open",
+            severity="medium",
+            title="SSH and Telnet both open",
+            description=(
+                f"Device {device.ip_address} has both SSH (22) and Telnet (23) open. "
+                "SSH is the secure replacement for Telnet — having both suggests "
+                "Telnet was never disabled after SSH was enabled. "
+                "Disable Telnet immediately; any legitimate remote access should use "
+                "SSH with key-based authentication only."
+            ),
+        )
+    ]
+
+
 # ── Master list of all checks ─────────────────────────────────────────────────
 
 ALL_CHECKS = [
@@ -633,4 +755,10 @@ ALL_CHECKS = [
     check_home_assistant_exposed,
     check_tftp_open,
     check_wireguard_vpn,
+    # Compound / pattern checks
+    check_multiple_admin_panels,
+    check_database_and_web_exposed,
+    check_cleartext_credential_surface,
+    check_remote_access_no_encryption,
+    check_ssh_and_telnet_both_open,
 ]
