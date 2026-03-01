@@ -33,6 +33,7 @@ class DeviceOut(BaseModel):
     vendor: str | None
     hostname: str | None
     os_guess: str | None
+    label: str | None
     trusted: bool
     first_seen: str | None  # ISO-8601 string
     last_seen: str | None
@@ -113,6 +114,29 @@ def set_device_trusted(
     return _device_to_out(device)
 
 
+class _LabelUpdate(BaseModel):
+    label: str | None
+
+
+@router.patch("/devices/{device_id}/label", response_model=DeviceOut)
+def set_device_label(
+    device_id: int,
+    body: _LabelUpdate,
+    db: Annotated[Session, Depends(get_db)],
+) -> DeviceOut:
+    """Set or clear the user-defined label on a device."""
+    from app.models.device import Device
+
+    stmt = select(Device).options(selectinload(Device.ports)).where(Device.id == device_id)
+    device = db.execute(stmt).scalar_one_or_none()
+    if device is None:
+        raise HTTPException(status_code=404, detail="Device not found")
+    device.label = body.label.strip() if body.label else None
+    db.commit()
+    db.refresh(device)
+    return _device_to_out(device)
+
+
 def _device_to_out(d) -> DeviceOut:  # noqa: ANN001 — SQLAlchemy instance, validated via Pydantic
     return DeviceOut(
         id=d.id,
@@ -121,6 +145,7 @@ def _device_to_out(d) -> DeviceOut:  # noqa: ANN001 — SQLAlchemy instance, val
         vendor=d.vendor,
         hostname=d.hostname,
         os_guess=d.os_guess,
+        label=d.label,
         trusted=bool(d.trusted),
         first_seen=d.first_seen.isoformat() if d.first_seen else None,
         last_seen=d.last_seen.isoformat() if d.last_seen else None,

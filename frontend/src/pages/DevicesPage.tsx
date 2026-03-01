@@ -2,11 +2,94 @@
  * DevicesPage — sortable/filterable table of all discovered devices.
  * Route: /devices
  */
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, Badge, SkeletonTable, PageHeader } from "../components";
 import { useDevices, useRisks } from "../hooks";
 import type { Device } from "../types/api";
+
+/** Inline label editor that saves on blur or Enter, cancels on Escape. */
+function LabelCell({
+  device,
+  onSaved,
+}: {
+  device: Device;
+  onSaved: (label: string | null) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(device.label ?? "");
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const display = device.label ?? device.hostname ?? "—";
+  const isPlaceholder = !device.label && !device.hostname;
+
+  const startEdit = () => {
+    setDraft(device.label ?? "");
+    setEditing(true);
+    setTimeout(() => inputRef.current?.select(), 0);
+  };
+
+  const save = () => {
+    setSaving(true);
+    const newLabel = draft.trim() || null;
+    fetch(`/api/devices/${device.id}/label`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label: newLabel }),
+    })
+      .then((r) => r.json())
+      .then((d: Device) => onSaved(d.label))
+      .catch(() => {})
+      .finally(() => {
+        setSaving(false);
+        setEditing(false);
+      });
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            inputRef.current?.blur();
+          } else if (e.key === "Escape") {
+            setEditing(false);
+          }
+        }}
+        disabled={saving}
+        className="w-full rounded border border-[var(--color-accent-primary)] bg-[var(--color-background)] px-1.5 py-0.5 text-sm text-[var(--color-text-primary)] focus:outline-none"
+        placeholder="Add label…"
+      />
+    );
+  }
+
+  return (
+    <span className="group flex items-center gap-1.5">
+      <span
+        className={
+          isPlaceholder ? "text-[var(--color-text-secondary)]" : undefined
+        }
+      >
+        {display}
+      </span>
+      <button
+        onClick={startEdit}
+        aria-label={`Edit label for ${device.ip_address}`}
+        title="Edit label"
+        className="opacity-0 group-hover:opacity-60 hover:!opacity-100 text-xs transition-opacity"
+      >
+        ✏
+      </button>
+    </span>
+  );
+}
 
 type SortKey =
   | "ip_address"
@@ -59,7 +142,17 @@ function sortDevices(
 }
 
 export function DevicesPage() {
-  const { devices, loading, error } = useDevices();
+  const { devices: rawDevices, loading, error } = useDevices();
+  const [localLabels, setLocalLabels] = useState<Record<number, string | null>>(
+    {},
+  );
+  const devices = useMemo(
+    () =>
+      rawDevices.map((d) =>
+        d.id in localLabels ? { ...d, label: localLabels[d.id] } : d,
+      ),
+    [rawDevices, localLabels],
+  );
   const { risks } = useRisks();
   const [filter, setFilter] = useState("");
   const [osFilter, setOsFilter] = useState("");
@@ -231,7 +324,15 @@ export function DevicesPage() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-[var(--color-text-secondary)]">
-                      {device.hostname ?? "—"}
+                      <LabelCell
+                        device={device}
+                        onSaved={(label) =>
+                          setLocalLabels((prev) => ({
+                            ...prev,
+                            [device.id]: label,
+                          }))
+                        }
+                      />
                     </td>
                     <td className="px-4 py-3 text-[var(--color-text-secondary)]">
                       {device.os_guess ?? "—"}

@@ -34,6 +34,7 @@ def _migrate_schema(engine) -> None:
         ("scans", "warning_message", "TEXT"),
         ("risks", "acknowledged_at", "DATETIME"),
         ("risks", "acknowledged_note", "TEXT"),
+        ("devices", "label", "TEXT"),
     ]
     with engine.connect() as conn:
         for table, column, col_def in migrations:
