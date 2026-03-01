@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from sqlalchemy import create_engine, text
@@ -43,6 +44,14 @@ def _migrate_schema(engine) -> None:
 
 def init_db() -> None:
     """Create all tables if they don't exist."""
+    # Ensure the data directory exists — required when a volume is freshly mounted
+    # and the directory hasn't been initialised yet (e.g. first run with a bind mount).
+    _db_url = DATABASE_URL
+    if _db_url.startswith("sqlite:///") and not _db_url.startswith("sqlite:///:"):
+        # Strip the scheme prefix; four slashes = absolute path, three = relative
+        db_path = Path(_db_url[len("sqlite:///") :])
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+
     from app.models import device as _device  # noqa: F401 — side-effect import registers ORM tables
     from app.models import (
         recommendation as _recommendation,  # noqa: F401 — side-effect import registers ORM tables

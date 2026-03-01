@@ -74,10 +74,6 @@ COPY --from=frontend-build /build/dist ./frontend/dist
 # Persist the SQLite database in a dedicated data directory
 RUN mkdir -p /app/data && chown -R crawler:crawler /app
 
-# Declare the data directory as a volume so Docker persists it even without
-# an explicit -v flag.  docker-compose and Unraid override with named/host mounts.
-VOLUME /app/data
-
 # Drop to non-root
 USER crawler
 
