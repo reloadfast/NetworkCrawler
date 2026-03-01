@@ -445,3 +445,60 @@ def _rec_to_out(r) -> RecommendationOut:  # noqa: ANN001 — SQLAlchemy instance
         created_at=r.created_at.isoformat() if r.created_at else None,
         updated_at=r.updated_at.isoformat() if r.updated_at else None,
     )
+
+
+# ── /api/settings ─────────────────────────────────────────────────────────────
+
+
+class SettingsOut(BaseModel):
+    webhook_url: str | None
+
+
+class _SettingsUpdate(BaseModel):
+    webhook_url: str | None = None
+
+
+@router.get("/settings", response_model=SettingsOut)
+def get_settings(db: Annotated[Session, Depends(get_db)]) -> SettingsOut:
+    """Return current application settings."""
+    from app.notifications import get_webhook_url
+
+    return SettingsOut(webhook_url=get_webhook_url(db))
+
+
+@router.patch("/settings", response_model=SettingsOut)
+def update_settings(
+    body: _SettingsUpdate,
+    db: Annotated[Session, Depends(get_db)],
+) -> SettingsOut:
+    """Persist application settings."""
+    from app.notifications import get_webhook_url, set_webhook_url
+
+    if body.webhook_url is not None:
+        set_webhook_url(db, body.webhook_url.strip() or None)
+    return SettingsOut(webhook_url=get_webhook_url(db))
+
+
+class _TestWebhookResponse(BaseModel):
+    success: bool
+    message: str
+
+
+@router.post("/settings/webhook/test", response_model=_TestWebhookResponse)
+def test_webhook(db: Annotated[Session, Depends(get_db)]) -> _TestWebhookResponse:
+    """Fire a test notification to the configured webhook URL."""
+    from app.notifications import get_webhook_url, send_webhook
+
+    url = get_webhook_url(db)
+    if not url:
+        raise HTTPException(status_code=422, detail="No webhook URL configured")
+    send_webhook(
+        url,
+        {
+            "event": "test",
+            "title": "NetworkCrawler Test",
+            "message": "Webhook is working correctly.",
+            "summary": "Webhook is working correctly.",
+        },
+    )
+    return _TestWebhookResponse(success=True, message=f"Test notification sent to {url}")

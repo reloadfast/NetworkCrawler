@@ -2,7 +2,7 @@
  * SettingsPage — application configuration and system information.
  * Route: /settings
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, PageHeader } from "../components";
 import { useAppVersion } from "../hooks/useAppVersion";
 
@@ -18,9 +18,82 @@ function copyViaExecCommand(text: string): void {
   document.body.removeChild(el);
 }
 
+function useWebhookSettings() {
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    type: "success" | "error";
+    msg: string;
+  } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d: { webhook_url: string | null }) =>
+        setWebhookUrl(d.webhook_url ?? ""),
+      )
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const flash = (type: "success" | "error", msg: string) => {
+    setFeedback({ type, msg });
+    setTimeout(() => setFeedback(null), 3500);
+  };
+
+  const save = () => {
+    setSaving(true);
+    fetch("/api/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ webhook_url: webhookUrl.trim() || null }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        flash("success", "Saved");
+      })
+      .catch(() => flash("error", "Failed to save"))
+      .finally(() => setSaving(false));
+  };
+
+  const test = () => {
+    setTesting(true);
+    fetch("/api/settings/webhook/test", { method: "POST" })
+      .then((r) => r.json())
+      .then((d: { success: boolean; message: string }) =>
+        flash(d.success ? "success" : "error", d.message),
+      )
+      .catch(() => flash("error", "Test request failed"))
+      .finally(() => setTesting(false));
+  };
+
+  return {
+    webhookUrl,
+    setWebhookUrl,
+    loading,
+    saving,
+    testing,
+    feedback,
+    save,
+    test,
+  };
+}
+
 export function SettingsPage() {
-  const { version, loading } = useAppVersion();
+  const { version, loading: vLoading } = useAppVersion();
   const [copied, setCopied] = useState(false);
+  const {
+    webhookUrl,
+    setWebhookUrl,
+    loading: whLoading,
+    saving,
+    testing,
+    feedback,
+    save,
+    test,
+  } = useWebhookSettings();
 
   const handleCopyVersion = () => {
     if (!version) return;
@@ -47,6 +120,100 @@ export function SettingsPage() {
     <div className="page-enter">
       <PageHeader title="Settings" />
 
+      {/* ── Notifications ───────────────────────────────────────────────── */}
+      <section aria-labelledby="notifications-heading" className="mb-6">
+        <h2
+          id="notifications-heading"
+          className="mb-3 text-xs font-semibold uppercase tracking-widest text-[var(--color-text-secondary)]"
+        >
+          Notifications
+        </h2>
+        <Card>
+          <p className="mb-4 text-sm text-[var(--color-text-secondary)]">
+            Send a webhook when a new device is detected or critical risks are
+            found. Compatible with{" "}
+            <a
+              href="https://ntfy.sh"
+              target="_blank"
+              rel="noreferrer"
+              className="underline underline-offset-2 hover:text-[var(--color-text-primary)]"
+            >
+              ntfy.sh
+            </a>
+            , Gotify, Home Assistant, Slack, and Discord.
+          </p>
+
+          <label
+            htmlFor="webhook-url"
+            className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]"
+          >
+            Webhook URL
+          </label>
+          <div className="flex gap-2">
+            <input
+              id="webhook-url"
+              type="url"
+              value={whLoading ? "" : webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+              placeholder="https://ntfy.sh/my-topic"
+              disabled={whLoading}
+              className="flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-secondary)]/50 focus:outline-none focus:ring-1 focus:ring-[var(--color-accent-primary)] disabled:opacity-50"
+            />
+            <button
+              onClick={save}
+              disabled={saving || whLoading}
+              className="rounded-md bg-[var(--color-accent-primary)] px-3 py-2 text-sm font-medium text-white disabled:opacity-50 hover:opacity-90 transition-opacity"
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+            <button
+              onClick={test}
+              disabled={testing || whLoading || !webhookUrl.trim()}
+              className="rounded-md border border-[var(--color-border)] px-3 py-2 text-sm text-[var(--color-text-secondary)] disabled:opacity-40 hover:text-[var(--color-text-primary)] transition-colors"
+            >
+              {testing ? "Testing…" : "Test"}
+            </button>
+          </div>
+
+          {feedback && (
+            <p
+              className={`mt-2 text-xs ${
+                feedback.type === "success"
+                  ? "text-[var(--color-accent-positive)]"
+                  : "text-[var(--color-accent-danger)]"
+              }`}
+            >
+              {feedback.msg}
+            </p>
+          )}
+
+          <p className="mt-3 text-xs text-[var(--color-text-secondary)]">
+            The webhook fires at the end of each scan if new devices appear or
+            critical risks are detected. A JSON payload is posted with{" "}
+            <code className="rounded bg-[var(--color-border)]/40 px-1 font-mono">
+              event
+            </code>
+            ,{" "}
+            <code className="rounded bg-[var(--color-border)]/40 px-1 font-mono">
+              new_devices
+            </code>
+            ,{" "}
+            <code className="rounded bg-[var(--color-border)]/40 px-1 font-mono">
+              risk_counts
+            </code>
+            , and ntfy.sh-compatible{" "}
+            <code className="rounded bg-[var(--color-border)]/40 px-1 font-mono">
+              title
+            </code>{" "}
+            /{" "}
+            <code className="rounded bg-[var(--color-border)]/40 px-1 font-mono">
+              message
+            </code>{" "}
+            fields.
+          </p>
+        </Card>
+      </section>
+
       {/* ── System ─────────────────────────────────────────────────────── */}
       <section aria-labelledby="system-heading">
         <h2
@@ -62,7 +229,7 @@ export function SettingsPage() {
                 Version
               </dt>
               <dd className="flex items-center gap-2">
-                {loading ? (
+                {vLoading ? (
                   <span className="h-4 w-16 animate-pulse rounded bg-[var(--color-border)]" />
                 ) : version ? (
                   <button
