@@ -7,6 +7,7 @@ import {
   DashboardPage,
   DevicesPage,
   DeviceDetailPage,
+  DocsPage,
   HistoryPage,
   RisksPage,
   RecommendationsPage,
@@ -30,6 +31,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             element={<RecommendationDetailPage />}
           />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="docs" element={<DocsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
