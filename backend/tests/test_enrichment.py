@@ -6,7 +6,7 @@ Markers: unit
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from app.scanner.dns_lookup import resolve_hostnames
@@ -227,60 +227,79 @@ class TestResolveHostnames:
             assert host.hostname == f"host-{i}.local"
 
     @pytest.mark.unit
-    def test_avahi_resolve_used_when_ptr_fails(self):
-        """When PTR returns nothing, avahi-resolve should be tried as fallback."""
+    def test_mdns_used_when_ptr_fails(self):
+        """When PTR returns nothing, direct mDNS query should be tried as fallback."""
         host = NmapHost(ip="192.168.1.50", hostname="")
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = "192.168.1.50\tpi.local\n"
         with (
             patch("app.scanner.dns_lookup.socket.gethostbyaddr", side_effect=OSError),
-            patch("app.scanner.dns_lookup.subprocess.run", return_value=mock_result),
+            patch(
+                "app.scanner.dns_lookup._mdns_ptr_query",
+                return_value="pi.local",
+            ),
         ):
             resolve_hostnames([host])
         assert host.hostname == "pi.local"
 
     @pytest.mark.unit
-    def test_avahi_not_installed_falls_back_silently(self):
-        """FileNotFoundError from avahi-resolve must not raise; hostname stays empty."""
+    def test_mdns_oserror_falls_back_silently(self):
+        """OSError inside the mDNS socket must not propagate; hostname stays empty."""
         host = NmapHost(ip="192.168.1.51", hostname="")
         with (
             patch("app.scanner.dns_lookup.socket.gethostbyaddr", side_effect=OSError),
             patch(
-                "app.scanner.dns_lookup.subprocess.run",
-                side_effect=FileNotFoundError("avahi-resolve not found"),
+                "app.scanner.dns_lookup._mdns_ptr_query",
+                return_value="",  # _mdns_ptr_query swallows OSError internally
             ),
         ):
             resolve_hostnames([host])
         assert host.hostname == ""
 
     @pytest.mark.unit
-    def test_avahi_timeout_falls_back_silently(self):
-        """subprocess.TimeoutExpired from avahi-resolve must not raise."""
-        import subprocess as _subprocess
-
+    def test_mdns_timeout_falls_back_silently(self):
+        """socket.timeout inside mDNS must not propagate; hostname stays empty."""
         host = NmapHost(ip="192.168.1.52", hostname="")
         with (
             patch("app.scanner.dns_lookup.socket.gethostbyaddr", side_effect=OSError),
             patch(
-                "app.scanner.dns_lookup.subprocess.run",
-                side_effect=_subprocess.TimeoutExpired(cmd="avahi-resolve", timeout=2),
+                "app.scanner.dns_lookup._mdns_ptr_query",
+                return_value="",  # _mdns_ptr_query swallows timeout internally
             ),
         ):
             resolve_hostnames([host])
         assert host.hostname == ""
 
     @pytest.mark.unit
-    def test_avahi_not_called_when_ptr_succeeds(self):
-        """avahi-resolve must not be invoked when PTR already returned a hostname."""
+    def test_mdns_not_called_when_ptr_succeeds(self):
+        """_mdns_ptr_query must not be invoked when PTR already returned a hostname."""
         host = NmapHost(ip="192.168.1.1", hostname="")
         with (
             patch(
                 "app.scanner.dns_lookup.socket.gethostbyaddr",
                 return_value=("router.local", [], ["192.168.1.1"]),
             ),
-            patch("app.scanner.dns_lookup.subprocess.run") as mock_avahi,
+            patch("app.scanner.dns_lookup._mdns_ptr_query") as mock_mdns,
         ):
             resolve_hostnames([host])
-        mock_avahi.assert_not_called()
+        mock_mdns.assert_not_called()
         assert host.hostname == "router.local"
+
+    @pytest.mark.unit
+    def test_mdns_parse_ptr_response(self):
+        """_parse_mdns_ptr correctly extracts a PTR hostname from a raw DNS response."""
+        import struct
+
+        from app.scanner.dns_lookup import _encode_dns_name, _parse_mdns_ptr
+
+        # Build a minimal DNS response with one PTR answer
+        ptr_name = "50.1.168.192.in-addr.arpa"
+        answer_name = b"\xc0\x0c"  # compression pointer back to question (offset 12)
+        rdata = _encode_dns_name("pi.local")
+        rdlength = len(rdata)
+
+        # Header: ID=0, QR=1|AA=1 flags, QDCOUNT=1, ANCOUNT=1
+        header = struct.pack("!HHHHHH", 0, 0x8400, 1, 1, 0, 0)
+        question = _encode_dns_name(ptr_name) + struct.pack("!HH", 12, 1)
+        answer = answer_name + struct.pack("!HHIH", 12, 1, 120, rdlength) + rdata
+
+        response = header + question + answer
+        assert _parse_mdns_ptr(response) == "pi.local"

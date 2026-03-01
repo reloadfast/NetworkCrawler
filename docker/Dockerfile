@@ -41,7 +41,6 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         nmap \
         arp-scan \
-        avahi-utils \
         libcap2-bin \
         gosu \
     && rm -rf /var/lib/apt/lists/*

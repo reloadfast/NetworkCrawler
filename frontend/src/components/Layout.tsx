@@ -8,6 +8,18 @@ import { NavLink, Outlet } from "react-router-dom";
 import { useTheme } from "../hooks";
 import { useAppVersion } from "../hooks/useAppVersion";
 
+/** Copy text to clipboard; works on HTTP as well as HTTPS. */
+function copyViaExecCommand(text: string): void {
+  const el = document.createElement("textarea");
+  el.value = text;
+  el.style.position = "fixed";
+  el.style.opacity = "0";
+  document.body.appendChild(el);
+  el.select();
+  document.execCommand("copy");
+  document.body.removeChild(el);
+}
+
 const navLinks = [
   { to: "/", label: "Dashboard", end: true },
   { to: "/devices", label: "Devices", end: false },
@@ -92,10 +104,25 @@ export function Layout() {
 
   const handleCopyVersion = () => {
     if (!version) return;
-    navigator.clipboard.writeText(`v${version}`).then(() => {
+    const text = `v${version}`;
+    const flash = () => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    });
+    };
+    // navigator.clipboard requires a secure context (HTTPS / localhost).
+    // Fall back to execCommand for plain-HTTP home-lab deployments.
+    if (navigator.clipboard) {
+      navigator.clipboard
+        .writeText(text)
+        .then(flash)
+        .catch(() => {
+          copyViaExecCommand(text);
+          flash();
+        });
+    } else {
+      copyViaExecCommand(text);
+      flash();
+    }
   };
 
   return (
