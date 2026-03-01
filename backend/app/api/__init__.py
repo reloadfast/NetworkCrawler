@@ -38,6 +38,7 @@ class DeviceOut(BaseModel):
     first_seen: str | None  # ISO-8601 string
     last_seen: str | None
     ports: list[PortOut] = []
+    security_score: int  # 0–100; 100 = no risks
 
     model_config = {"from_attributes": True}
 
@@ -74,7 +75,11 @@ def list_devices(db: Annotated[Session, Depends(get_db)]) -> list[DeviceOut]:
     """Return all known devices with their open ports."""
     from app.models.device import Device
 
-    stmt = select(Device).options(selectinload(Device.ports)).order_by(Device.ip_address)
+    stmt = (
+        select(Device)
+        .options(selectinload(Device.ports), selectinload(Device.risks))
+        .order_by(Device.ip_address)
+    )
     devices = db.execute(stmt).scalars().all()
     return [_device_to_out(d) for d in devices]
 
@@ -84,7 +89,11 @@ def get_device(device_id: int, db: Annotated[Session, Depends(get_db)]) -> Devic
     """Return a single device by ID, including its ports."""
     from app.models.device import Device
 
-    stmt = select(Device).options(selectinload(Device.ports)).where(Device.id == device_id)
+    stmt = (
+        select(Device)
+        .options(selectinload(Device.ports), selectinload(Device.risks))
+        .where(Device.id == device_id)
+    )
     device = db.execute(stmt).scalar_one_or_none()
     if device is None:
         raise HTTPException(status_code=404, detail="Device not found")
@@ -104,7 +113,11 @@ def set_device_trusted(
     """Toggle the trusted flag on a device."""
     from app.models.device import Device
 
-    stmt = select(Device).options(selectinload(Device.ports)).where(Device.id == device_id)
+    stmt = (
+        select(Device)
+        .options(selectinload(Device.ports), selectinload(Device.risks))
+        .where(Device.id == device_id)
+    )
     device = db.execute(stmt).scalar_one_or_none()
     if device is None:
         raise HTTPException(status_code=404, detail="Device not found")
@@ -127,7 +140,11 @@ def set_device_label(
     """Set or clear the user-defined label on a device."""
     from app.models.device import Device
 
-    stmt = select(Device).options(selectinload(Device.ports)).where(Device.id == device_id)
+    stmt = (
+        select(Device)
+        .options(selectinload(Device.ports), selectinload(Device.risks))
+        .where(Device.id == device_id)
+    )
     device = db.execute(stmt).scalar_one_or_none()
     if device is None:
         raise HTTPException(status_code=404, detail="Device not found")
@@ -135,6 +152,15 @@ def set_device_label(
     db.commit()
     db.refresh(device)
     return _device_to_out(device)
+
+
+def _device_security_score(d) -> int:  # noqa: ANN001 — SQLAlchemy instance
+    """Compute 0-100 security score from active risks. 100 = clean."""
+    if d.trusted:
+        return 100
+    weights = {"critical": 30, "high": 15, "medium": 7, "low": 3}
+    penalty = sum(weights.get(r.severity, 0) for r in d.risks)
+    return max(0, 100 - penalty)
 
 
 def _device_to_out(d) -> DeviceOut:  # noqa: ANN001 — SQLAlchemy instance, validated via Pydantic
@@ -149,6 +175,7 @@ def _device_to_out(d) -> DeviceOut:  # noqa: ANN001 — SQLAlchemy instance, val
         trusted=bool(d.trusted),
         first_seen=d.first_seen.isoformat() if d.first_seen else None,
         last_seen=d.last_seen.isoformat() if d.last_seen else None,
+        security_score=_device_security_score(d),
         ports=[
             PortOut(
                 id=p.id,

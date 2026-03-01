@@ -11,6 +11,7 @@ import {
   ToastContainer,
   SkeletonCard,
   PageHeader,
+  ScoreBadge,
 } from "../components";
 import { useDevices, useScans, useTriggerScan, useRiskSummary } from "../hooks";
 import { useScanStatus } from "../hooks/useScanStatus";
@@ -236,7 +237,7 @@ export function DashboardPage() {
       ) : (
         <>
           {/* Summary stat cards */}
-          <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <StatCard
               label="Total Devices"
               value={devices.length}
@@ -271,6 +272,25 @@ export function DashboardPage() {
               accentColor={STRIPE.other}
               icon={<ShieldIcon />}
               to="/risks"
+            />
+            <StatCard
+              label="Avg Score"
+              value={
+                devices.length > 0 ? (
+                  <ScoreBadge
+                    score={Math.round(
+                      devices.reduce((s, d) => s + d.security_score, 0) /
+                        devices.length,
+                    )}
+                    size="md"
+                  />
+                ) : (
+                  "—"
+                )
+              }
+              accentColor={STRIPE.devices}
+              icon={<ShieldIcon />}
+              to="/devices"
             />
           </div>
 
