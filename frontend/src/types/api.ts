@@ -58,6 +58,8 @@ export interface Risk {
   title: string;
   description: string;
   detected_at: string | null;
+  acknowledged_at: string | null;
+  acknowledged_note: string | null;
 }
 
 export type Effort = "low" | "medium" | "high";

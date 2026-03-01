@@ -8,6 +8,7 @@ import type { Risk, RiskSummary, Severity } from "../types/api";
 export interface UseRisksOptions {
   severity?: Severity;
   deviceId?: number;
+  acknowledged?: boolean;
 }
 
 export interface UseRisksResult {
@@ -23,7 +24,7 @@ export function useRisks(options: UseRisksOptions = {}): UseRisksResult {
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
 
-  const { severity, deviceId } = options;
+  const { severity, deviceId, acknowledged } = options;
 
   useEffect(() => {
     let cancelled = false;
@@ -32,6 +33,8 @@ export function useRisks(options: UseRisksOptions = {}): UseRisksResult {
     const params = new URLSearchParams();
     if (severity) params.set("severity", severity);
     if (deviceId !== undefined) params.set("device_id", String(deviceId));
+    if (acknowledged !== undefined)
+      params.set("acknowledged", String(acknowledged));
     const qs = params.toString();
     fetch(`/api/risks${qs ? `?${qs}` : ""}`)
       .then((r) => {
@@ -53,7 +56,7 @@ export function useRisks(options: UseRisksOptions = {}): UseRisksResult {
     return () => {
       cancelled = true;
     };
-  }, [severity, deviceId, tick]);
+  }, [severity, deviceId, acknowledged, tick]);
 
   return { risks, loading, error, refetch: () => setTick((t) => t + 1) };
 }
