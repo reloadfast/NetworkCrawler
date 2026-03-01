@@ -112,10 +112,13 @@ export function Layout() {
     // navigator.clipboard requires a secure context (HTTPS / localhost).
     // Fall back to execCommand for plain-HTTP home-lab deployments.
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(text).then(flash).catch(() => {
-        copyViaExecCommand(text);
-        flash();
-      });
+      navigator.clipboard
+        .writeText(text)
+        .then(flash)
+        .catch(() => {
+          copyViaExecCommand(text);
+          flash();
+        });
     } else {
       copyViaExecCommand(text);
       flash();

@@ -30,10 +30,13 @@ export function SettingsPage() {
       setTimeout(() => setCopied(false), 1500);
     };
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(text).then(flash).catch(() => {
-        copyViaExecCommand(text);
-        flash();
-      });
+      navigator.clipboard
+        .writeText(text)
+        .then(flash)
+        .catch(() => {
+          copyViaExecCommand(text);
+          flash();
+        });
     } else {
       copyViaExecCommand(text);
       flash();
