@@ -4,7 +4,13 @@
  */
 import { memo, useRef, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Card, Badge, SkeletonCard, PageHeader, ScoreBadge } from "../components";
+import {
+  Card,
+  Badge,
+  SkeletonCard,
+  PageHeader,
+  ScoreBadge,
+} from "../components";
 import { SEV_LEVELS } from "../constants/severity";
 import { useDevice, useRisks, useDeviceRecommendations } from "../hooks";
 import type { Risk, Recommendation, Severity } from "../types/api";
@@ -298,7 +304,9 @@ export function DeviceDetailPage() {
             </dt>
             <dd className="mt-1">
               <ScoreBadge score={device.security_score} size="lg" />
-              <span className="ml-2 text-xs text-[var(--color-text-secondary)]">/ 100</span>
+              <span className="ml-2 text-xs text-[var(--color-text-secondary)]">
+                / 100
+              </span>
             </dd>
           </div>
         </dl>

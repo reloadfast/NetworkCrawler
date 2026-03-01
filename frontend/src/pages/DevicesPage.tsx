@@ -4,7 +4,13 @@
  */
 import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Card, Badge, SkeletonTable, PageHeader, ScoreBadge } from "../components";
+import {
+  Card,
+  Badge,
+  SkeletonTable,
+  PageHeader,
+  ScoreBadge,
+} from "../components";
 import { useDevices, useRisks } from "../hooks";
 import type { Device } from "../types/api";
 

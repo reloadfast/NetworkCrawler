@@ -22,7 +22,11 @@ const sizeClasses = {
   lg: "text-base px-3 py-1.5 min-w-[3.5rem] font-semibold",
 };
 
-export function ScoreBadge({ score, size = "md", className = "" }: ScoreBadgeProps) {
+export function ScoreBadge({
+  score,
+  size = "md",
+  className = "",
+}: ScoreBadgeProps) {
   return (
     <span
       title={`Security score: ${score}/100`}
