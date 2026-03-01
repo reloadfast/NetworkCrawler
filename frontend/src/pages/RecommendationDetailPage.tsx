@@ -3,7 +3,7 @@
  * effort/impact indicators, expandable exploitation context, and link back to device.
  * Route: /recommendations/:id
  */
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Card, Badge, SkeletonCard } from "../components";
 import { useRecommendations } from "../hooks";
@@ -40,7 +40,7 @@ function ExpandableSection({
   children,
 }: {
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   return (
