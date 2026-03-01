@@ -127,7 +127,9 @@ function useChecklist() {
   useEffect(() => {
     fetch("/api/settings/checklist")
       .then((r) => r.json())
-      .then((d: ChecklistState) => setState(d))
+      .then((d: ChecklistState) => {
+        if (d && Array.isArray(d.items)) setState(d);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

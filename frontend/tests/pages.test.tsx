@@ -93,6 +93,13 @@ function buildFetch(overrides: Record<string, unknown> = {}) {
       "/api/risks/summary": summary,
       "/api/risks?severity=critical": [risk1],
       "/api/risks?device_id=1": [risk1],
+      "/api/settings/checklist": {
+        items: [],
+        posture: "at_risk",
+        posture_label: "At Risk",
+        yes_count: 0,
+      },
+      "/api/settings": { webhook_url: null },
       ...overrides,
     };
     // match base path for parameterised URLs
@@ -325,7 +332,9 @@ describe("RisksPage", () => {
     await waitFor(() =>
       expect(screen.getByText("Default credentials")).toBeInTheDocument(),
     );
-    expect(screen.getByLabelText(/Filter by critical severity/i)).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/Filter by critical severity/i),
+    ).toBeInTheDocument();
   });
 
   it("shows empty state when no risks", async () => {

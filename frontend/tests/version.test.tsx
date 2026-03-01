@@ -38,22 +38,64 @@ beforeAll(() => {
 // ── helpers ────────────────────────────────────────────────────────────────────
 
 function mockHealthFetch(data: HealthResponse, ok = true) {
-  return vi.fn().mockResolvedValue({
-    ok,
-    status: ok ? 200 : 500,
-    json: () => Promise.resolve(data),
+  const checklistData = {
+    items: [],
+    posture: "at_risk",
+    posture_label: "At Risk",
+    yes_count: 0,
+  };
+  return vi.fn().mockImplementation((url: string) => {
+    if (url === "/api/settings/checklist") {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(checklistData),
+      });
+    }
+    if (url === "/api/settings") {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ webhook_url: null }),
+      });
+    }
+    return Promise.resolve({
+      ok,
+      status: ok ? 200 : 500,
+      json: () => Promise.resolve(data),
+    });
   });
 }
 
 function mockAllFetch(healthData: HealthResponse) {
   // Layout also triggers scans/devices/risks fetches via hooks in child pages;
   // route the /health call to the real mock and everything else to empty arrays.
+  const checklistData = {
+    items: [],
+    posture: "at_risk",
+    posture_label: "At Risk",
+    yes_count: 0,
+  };
   return vi.fn().mockImplementation((url: string) => {
     if (url === "/health") {
       return Promise.resolve({
         ok: true,
         status: 200,
         json: () => Promise.resolve(healthData),
+      });
+    }
+    if (url === "/api/settings/checklist") {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(checklistData),
+      });
+    }
+    if (url === "/api/settings") {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ webhook_url: null }),
       });
     }
     return Promise.resolve({

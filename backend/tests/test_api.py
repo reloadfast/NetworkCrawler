@@ -666,7 +666,7 @@ def test_post_checklist_full_yes_returns_hardened(client):
     ]
     resp = client.post(
         "/api/settings/checklist",
-        json={"answers": {k: "yes" for k in keys}},
+        json={"answers": dict.fromkeys(keys, "yes")},
     )
     assert resp.status_code == 200
     data = resp.json()

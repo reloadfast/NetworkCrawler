@@ -146,9 +146,11 @@ function usePostureBadge() {
       .then((r) => r.json())
       .then(
         (d: { posture: PostureBadge; yes_count: number; items: unknown[] }) => {
-          setPosture(d.posture);
-          setYesCount(d.yes_count);
-          setTotal(d.items.length);
+          if (d && d.posture && Array.isArray(d.items)) {
+            setPosture(d.posture);
+            setYesCount(d.yes_count);
+            setTotal(d.items.length);
+          }
         },
       )
       .catch(() => {});
