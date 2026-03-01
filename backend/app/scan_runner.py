@@ -41,7 +41,7 @@ def run_scan_and_persist(triggered_by: str = "scheduler") -> int:
         db.commit()
 
         result: ScanResult = orchestrate_scan()
-        _persist_result(db, result)
+        new_device_ids = _persist_result(db, result)
         devices_found = len(result.hosts) + len(result.arp_only)
 
         scan.current_stage = "analysing"
@@ -78,6 +78,18 @@ def run_scan_and_persist(triggered_by: str = "scheduler") -> int:
 
         generate_all_recommendations(db)
 
+        # Fire webhook notification (new devices or critical risks)
+        from app.notifications import (
+            notify_scan_complete,  # noqa: PLC0415 — deferred to avoid circular import at module level
+        )
+
+        notify_scan_complete(
+            db,
+            scan_id=scan_id,
+            new_device_ids=new_device_ids,
+            risk_counts=risk_counts,
+        )
+
         scan.status = "completed"
         scan.finished_at = datetime.now(tz=UTC)
         scan.duration_seconds = round(time.monotonic() - t0, 2)
@@ -105,11 +117,19 @@ def run_scan_and_persist(triggered_by: str = "scheduler") -> int:
     return scan_id
 
 
-def _persist_result(db: Session, result: ScanResult) -> None:
-    """Upsert all devices and ports from a ScanResult into the database."""
+def _persist_result(db: Session, result: ScanResult) -> list[int]:
+    """Upsert all devices and ports from a ScanResult into the database.
+
+    Returns a list of device IDs that were newly created in this scan.
+    """
     from sqlalchemy import select
 
+    from app.models.device import Device as DeviceModel
     from app.models.device import Port
+
+    # Snapshot existing IPs before upserting so we can detect brand-new devices
+    existing_ips: set[str] = {row[0] for row in db.execute(select(DeviceModel.ip_address)).all()}
+    new_device_ids: list[int] = []
 
     # Full nmap results
     for nh in result.hosts:
@@ -121,6 +141,8 @@ def _persist_result(db: Session, result: ScanResult) -> None:
             os_guess=nh.os_guess or None,
         )
         db.flush()
+        if nh.ip not in existing_ips:
+            new_device_ids.append(device.id)
 
         current_ports = {(p.port_number, p.protocol) for p in nh.ports}
         for port in nh.ports:
@@ -141,11 +163,15 @@ def _persist_result(db: Session, result: ScanResult) -> None:
 
     # ARP-only hosts (no nmap data)
     for ah in result.arp_only:
-        upsert_device(
+        device = upsert_device(
             db,
             ip_address=ah.ip,
             mac_address=ah.mac or None,
             vendor=ah.vendor or None,
         )
+        db.flush()
+        if ah.ip not in existing_ips:
+            new_device_ids.append(device.id)
 
     db.commit()
+    return new_device_ids
