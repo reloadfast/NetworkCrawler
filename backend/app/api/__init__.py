@@ -418,6 +418,8 @@ class RecommendationOut(BaseModel):
     steps: list[str]
     effort: str
     impact: str
+    attack_scenario: str | None
+    likelihood: str | None
     created_at: str | None
     updated_at: str | None
 
@@ -494,6 +496,8 @@ def _rec_to_out(r) -> RecommendationOut:  # noqa: ANN001 — SQLAlchemy instance
         steps=_safe_load_steps(r.steps),
         effort=r.effort,
         impact=r.impact,
+        attack_scenario=r.attack_scenario,
+        likelihood=r.likelihood,
         created_at=r.created_at.isoformat() if r.created_at else None,
         updated_at=r.updated_at.isoformat() if r.updated_at else None,
     )

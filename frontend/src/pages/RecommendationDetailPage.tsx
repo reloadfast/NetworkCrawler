@@ -1,8 +1,9 @@
 /**
  * RecommendationDetailPage — full recommendation with numbered steps,
- * effort/impact indicators, and link back to device.
+ * effort/impact indicators, expandable exploitation context, and link back to device.
  * Route: /recommendations/:id
  */
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Card, Badge, SkeletonCard } from "../components";
 import { useRecommendations } from "../hooks";
@@ -30,6 +31,39 @@ function EffortImpactBar({ label, value }: { label: string; value: string }) {
       <span className="text-xs capitalize text-[var(--color-text-secondary)]">
         {value}
       </span>
+    </div>
+  );
+}
+
+function ExpandableSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border border-[var(--color-border)] rounded-lg overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-left hover:bg-[var(--color-surface-hover)] transition-colors"
+        aria-expanded={open}
+      >
+        <span>{title}</span>
+        <span
+          className={`text-[var(--color-text-secondary)] transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          aria-hidden="true"
+        >
+          ▾
+        </span>
+      </button>
+      {open && (
+        <div className="px-4 pb-4 pt-1 text-sm text-[var(--color-text-secondary)] leading-relaxed border-t border-[var(--color-border)]">
+          {children}
+        </div>
+      )}
     </div>
   );
 }
@@ -94,7 +128,7 @@ export function RecommendationDetailPage() {
 
       {/* Remediation steps */}
       <h2 className="mb-3 text-lg font-semibold">Remediation Steps</h2>
-      <Card>
+      <Card className="mb-6">
         <ol className="flex flex-col gap-3">
           {rec.steps.map((step, i) => (
             <li key={i} className="flex gap-3">
@@ -111,6 +145,22 @@ export function RecommendationDetailPage() {
           ))}
         </ol>
       </Card>
+
+      {/* Contextual intelligence */}
+      {(rec.attack_scenario || rec.likelihood) && (
+        <div className="flex flex-col gap-3">
+          {rec.attack_scenario && (
+            <ExpandableSection title="🎯 How could this be exploited?">
+              {rec.attack_scenario}
+            </ExpandableSection>
+          )}
+          {rec.likelihood && (
+            <ExpandableSection title="📊 How likely is this on a home network?">
+              {rec.likelihood}
+            </ExpandableSection>
+          )}
+        </div>
+      )}
     </div>
   );
 }

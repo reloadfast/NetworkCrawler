@@ -26,6 +26,8 @@ class Recommendation(Base):
     steps = Column(Text, nullable=False)  # JSON-encoded list[str]
     effort = Column(String, nullable=False)  # "low" | "medium" | "high"
     impact = Column(String, nullable=False)  # "low" | "medium" | "high"
+    attack_scenario = Column(Text, nullable=True)
+    likelihood = Column(Text, nullable=True)
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
 

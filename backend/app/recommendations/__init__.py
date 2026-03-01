@@ -37,6 +37,8 @@ class _Advice:
     steps: list[str]
     effort: str  # "low" | "medium" | "high"
     impact: str  # "low" | "medium" | "high"
+    attack_scenario: str = ""  # plain-language exploitation narrative
+    likelihood: str = ""  # realistic likelihood on a home network
 
 
 _CATALOGUE: dict[str, _Advice] = {
@@ -55,6 +57,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="low",
         impact="critical",
+        attack_scenario=(
+            "An attacker on your Wi-Fi passively records all Telnet traffic with "
+            "a tool like Wireshark or tcpdump. In seconds they see your username and "
+            "password in plain text — no hacking required."
+        ),
+        likelihood=(
+            "High — automated scanners probe port 23 continuously. On a home network, "
+            "any device with Wi-Fi access can capture Telnet sessions."
+        ),
     ),
     "ftp_open": _Advice(
         title="Replace FTP with SFTP or FTPS",
@@ -71,6 +82,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="medium",
         impact="high",
+        attack_scenario=(
+            "Anyone connected to your network can run a packet capture and read every "
+            "file transferred and every password typed into FTP. They can also attempt "
+            "brute-force logins with common credential lists."
+        ),
+        likelihood=(
+            "Medium — FTP is less common on home networks but frequently left enabled "
+            "on NAS devices and routers."
+        ),
     ),
     "unencrypted_http": _Advice(
         title="Enable HTTPS on the management interface",
@@ -87,6 +107,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="low",
         impact="medium",
+        attack_scenario=(
+            "A device on your network performs a man-in-the-middle attack, intercepting "
+            "your browser's connection to the admin panel. They can read or modify the page, "
+            "steal your session cookie, or capture your login credentials."
+        ),
+        likelihood=(
+            "Medium — requires the attacker to already be on your LAN, but ARP spoofing "
+            "makes this trivial on a flat Wi-Fi network."
+        ),
     ),
     "upnp_exposed": _Advice(
         title="Disable UPnP on non-router devices",
@@ -102,6 +131,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="low",
         impact="medium",
+        attack_scenario=(
+            "A malicious website or script instructs your router via UPnP to open ports "
+            "to the internet — without any confirmation from you. This has been used to "
+            "expose SSH, RDP, and camera streams publicly."
+        ),
+        likelihood=(
+            "Medium — UPnP attacks have been exploited in the wild. Any device on your "
+            "network (including a compromised IoT device) can silently add port forwarding rules."
+        ),
     ),
     "ssh_password_auth": _Advice(
         title="Disable SSH password authentication and use key-based auth",
@@ -119,6 +157,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="medium",
         impact="medium",
+        attack_scenario=(
+            "Automated bots continuously probe port 22 on the internet and LAN, trying "
+            "millions of username/password combinations. A weak or reused password can "
+            "be cracked in minutes."
+        ),
+        likelihood=(
+            "High — SSH brute-force is one of the most common attack types. "
+            "Tools like Hydra and Medusa make this trivial."
+        ),
     ),
     "smb_open": _Advice(
         title="Close or restrict SMB/NetBIOS ports",
@@ -135,6 +182,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="medium",
         impact="high",
+        attack_scenario=(
+            "The EternalBlue exploit (used by WannaCry ransomware) targeted SMB directly. "
+            "Even on a LAN, an attacker can use SMB vulnerabilities to move laterally between "
+            "devices or access shared files without credentials."
+        ),
+        likelihood=(
+            "Medium — SMB exploits are well-known. Unpatched SMB is high-risk; patched SMB "
+            "on a home LAN is lower but not negligible."
+        ),
     ),
     "printer_iot_admin": _Advice(
         title="Restrict printer/IoT admin UI access",
@@ -152,6 +208,16 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="low",
         impact="medium",
+        attack_scenario=(
+            "Default credentials like admin/admin or admin/1234 are published online for "
+            "every printer model. An attacker logs into the admin panel, changes settings, "
+            "captures print jobs, or uses the device as a pivot point into the rest of "
+            "the network."
+        ),
+        likelihood=(
+            "High — default credentials on printers and IoT devices are extremely common "
+            "and rarely changed by home users."
+        ),
     ),
     "outdated_banner": _Advice(
         title="Update outdated service software",
@@ -168,6 +234,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="medium",
         impact="low",
+        attack_scenario=(
+            "An attacker reads the version banner, looks up known CVEs for that exact "
+            "version on a public database, and runs a publicly available exploit. "
+            "Old software often has unpatched remote code execution vulnerabilities."
+        ),
+        likelihood=(
+            "Medium — automated vulnerability scanners do this constantly. Exploitation "
+            "depends on whether a known CVE exists for the detected version."
+        ),
     ),
     "rdp_exposed": _Advice(
         title="Restrict RDP access",
@@ -184,6 +259,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="low",
         impact="high",
+        attack_scenario=(
+            "Attackers use tools like BlueKeep exploits or credential stuffing to take "
+            "over RDP sessions. Once inside, they have full desktop access to the machine. "
+            "On a LAN, RDP is also a primary lateral movement target after initial compromise."
+        ),
+        likelihood=(
+            "High — RDP is one of the most attacked protocols. Even on a LAN, "
+            "a compromised device can be used to pivot to others via RDP."
+        ),
     ),
     "vnc_exposed": _Advice(
         title="Secure or disable VNC",
@@ -201,6 +285,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="low",
         impact="high",
+        attack_scenario=(
+            "Many VNC servers use weak or no passwords by default. An attacker gains "
+            "full graphical access to the desktop. VNC traffic is also unencrypted, "
+            "so passwords can be sniffed off the network."
+        ),
+        likelihood=(
+            "Medium — VNC is less common than RDP but frequently misconfigured with "
+            "weak or no credentials on home lab devices."
+        ),
     ),
     "mqtt_open": _Advice(
         title="Secure MQTT broker with TLS and authentication",
@@ -218,6 +311,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="medium",
         impact="medium",
+        attack_scenario=(
+            "An attacker connects to the MQTT broker without authentication and subscribes "
+            "to all topics (#). They can read sensor data, home automation commands, and "
+            "in some cases publish malicious commands to smart home devices."
+        ),
+        likelihood=(
+            "Medium — unauthenticated MQTT brokers are common in home automation setups. "
+            "Risk escalates when smart locks, alarms, or switches are connected."
+        ),
     ),
     "open_dns_resolver": _Advice(
         title="Restrict DNS to authorised clients",
@@ -235,6 +337,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="low",
         impact="medium",
+        attack_scenario=(
+            "An attacker uses your device to amplify a DNS DDoS attack against a third party, "
+            "sending small queries that generate large responses directed at the victim. "
+            "Your IP appears as the source, implicating you."
+        ),
+        likelihood=(
+            "Low on home networks — unless you're running a DNS server intentionally. "
+            "The risk is primarily misuse for amplification attacks."
+        ),
     ),
     "modbus_open": _Advice(
         title="Disable Modbus or isolate the device",
@@ -252,6 +363,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="medium",
         impact="high",
+        attack_scenario=(
+            "Modbus has no authentication. An attacker sends raw Modbus commands to read "
+            "sensor values, modify control registers, or issue commands to connected hardware. "
+            "On a home LAN, this likely indicates a misconfigured device."
+        ),
+        likelihood=(
+            "Low — Modbus on a home LAN is unusual and almost always a misconfiguration. "
+            "Risk is high if the device controls physical systems."
+        ),
     ),
     "snmp_exposed": _Advice(
         title="Secure or disable SNMP",
@@ -270,6 +390,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="low",
         impact="high",
+        attack_scenario=(
+            "An attacker sends SNMP queries with the default 'public' community string and "
+            "receives full device information — interfaces, routing tables, connected devices, "
+            "and system details. This information is used to plan deeper attacks."
+        ),
+        likelihood=(
+            "Medium — default SNMP community strings are present on most network devices "
+            "out of the box. Automated LAN scanners query port 161 routinely."
+        ),
     ),
     "redis_exposed": _Advice(
         title="Bind Redis to localhost and require authentication",
@@ -286,6 +415,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="low",
         impact="critical",
+        attack_scenario=(
+            "An attacker connects to Redis and runs: CONFIG SET dir /root/.ssh && "
+            "CONFIG SET dbfilename authorized_keys, then writes their public key — "
+            "gaining passwordless SSH root access to the server in under 30 seconds."
+        ),
+        likelihood=(
+            "High on misconfigured servers — exposed Redis instances are compromised within "
+            "hours of being discovered. Any LAN user can execute this without special tools."
+        ),
     ),
     "docker_daemon_tcp": _Advice(
         title="Disable the unauthenticated Docker TCP socket",
@@ -305,6 +443,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="low",
         impact="critical",
+        attack_scenario=(
+            "An attacker runs: docker -H tcp://your-ip:2375 run -v /:/host alpine chroot /host. "
+            "In one command they have root access to your entire filesystem. "
+            "No password, no authentication — just a TCP connection."
+        ),
+        likelihood=(
+            "High if exposed — this is a critical misconfiguration. Any device on your LAN "
+            "can execute this in seconds using standard Docker tools."
+        ),
     ),
     "docker_daemon_tls": _Advice(
         title="Restrict Docker TLS daemon access",
@@ -320,6 +467,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="medium",
         impact="high",
+        attack_scenario=(
+            "If TLS client verification is misconfigured (e.g., --tls instead of --tlsverify), "
+            "anyone can still connect. Even with proper TLS, the Docker API gives full host "
+            "root access to anyone who can authenticate."
+        ),
+        likelihood=(
+            "Low if properly configured with --tlsverify enforced. "
+            "Medium if --tlsverify is not set or certificates are shared insecurely."
+        ),
     ),
     "elasticsearch_open": _Advice(
         title="Enable Elasticsearch authentication and restrict network access",
@@ -336,6 +492,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="medium",
         impact="high",
+        attack_scenario=(
+            "An attacker queries http://your-ip:9200/_cat/indices to list all data stores, "
+            "then dumps the entire database. On a home network, this might expose personal "
+            "files or application data with a single HTTP request."
+        ),
+        likelihood=(
+            "Medium — Elasticsearch without authentication is a well-known misconfiguration. "
+            "Automated scanners specifically target port 9200."
+        ),
     ),
     "portainer_exposed": _Advice(
         title="Secure Portainer and restrict network access",
@@ -352,6 +517,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="low",
         impact="medium",
+        attack_scenario=(
+            "An attacker accesses the Portainer web UI, browses your containers, and uses "
+            "the built-in terminal to exec into any running container. From there they can "
+            "access the host filesystem and all other containers."
+        ),
+        likelihood=(
+            "Low on typical home networks — medium for home lab users. Risk is high "
+            "if the Portainer admin password has not been set after installation."
+        ),
     ),
     "home_assistant_exposed": _Advice(
         title="Secure Home Assistant and enable 2FA",
@@ -369,6 +543,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="low",
         impact="medium",
+        attack_scenario=(
+            "An attacker authenticates to Home Assistant (guessing a weak password or "
+            "exploiting a vulnerability), then uses it to unlock smart locks, disable alarms, "
+            "or enumerate all connected smart home devices."
+        ),
+        likelihood=(
+            "Low — requires the attacker to be on your LAN or the service to be "
+            "internet-exposed. Risk increases significantly if Home Assistant is port-forwarded."
+        ),
     ),
     "tftp_open": _Advice(
         title="Disable TFTP if not actively required",
@@ -385,6 +568,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="low",
         impact="medium",
+        attack_scenario=(
+            "An attacker requests well-known config files (e.g., startup-config, passwd) "
+            "from the TFTP server without any credentials. TFTP is also used to replace "
+            "firmware on network devices."
+        ),
+        likelihood=(
+            "Low — TFTP on home networks is usually enabled for PXE booting and "
+            "rarely hardened against unauthorised access."
+        ),
     ),
     "wireguard_vpn": _Advice(
         title="Review WireGuard peer configuration",
@@ -401,6 +593,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="low",
         impact="low",
+        attack_scenario=(
+            "WireGuard itself is cryptographically secure. The risk is stale peer entries — "
+            "if a former network user's public key is still listed, they can still connect "
+            "to the VPN."
+        ),
+        likelihood=(
+            "Very low — WireGuard is designed to be secure. "
+            "This finding is informational and the main risk is key hygiene."
+        ),
     ),
     "multiple_admin_panels": _Advice(
         title="Reduce the management attack surface",
@@ -416,6 +617,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="low",
         impact="medium",
+        attack_scenario=(
+            "Each additional management port is another login form to brute-force or "
+            "vulnerability to exploit. An attacker methodically tests each one for default "
+            "credentials or known CVEs, increasing their chances of finding a weak entry point."
+        ),
+        likelihood=(
+            "Medium — the more services exposed, the more likely one has a misconfiguration "
+            "or weak password. Compound exposure multiplies the overall risk."
+        ),
     ),
     "database_and_web_exposed": _Advice(
         title="Isolate the database from the network and enforce HTTPS",
@@ -432,6 +642,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="medium",
         impact="high",
+        attack_scenario=(
+            "An attacker finds an SQL injection or file upload vulnerability in the web "
+            "application, then uses it to connect directly to the open database port and "
+            "exfiltrate all data — bypassing authentication entirely."
+        ),
+        likelihood=(
+            "Medium — web application vulnerabilities are extremely common. The combination "
+            "of an open web UI and an open database port is a classic two-step exploitation path."
+        ),
     ),
     "cleartext_credential_surface": _Advice(
         title="Replace all cleartext protocols immediately",
@@ -447,6 +666,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="low",
         impact="high",
+        attack_scenario=(
+            "A single tcpdump or Wireshark session on your Wi-Fi captures passwords from "
+            "Telnet, FTP usernames and files, and HTTP form data simultaneously. An attacker "
+            "captures valid credentials within minutes of observing network traffic."
+        ),
+        likelihood=(
+            "High — if all three cleartext services are in active use, credential capture "
+            "is trivially easy for anyone on your network."
+        ),
     ),
     "remote_access_no_encryption": _Advice(
         title="Tunnel remote desktop through an encrypted channel",
@@ -464,6 +692,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="medium",
         impact="high",
+        attack_scenario=(
+            "An attacker on your network runs a packet capture, extracts the VNC or RDP "
+            "session data, and reconstructs the screen contents. For RDP without NLA, "
+            "credentials are sent before the TLS handshake completes."
+        ),
+        likelihood=(
+            "Medium — requires LAN access, but ARP spoofing can silently position an "
+            "attacker between you and the target device."
+        ),
     ),
     "ssh_and_telnet_both_open": _Advice(
         title="Disable Telnet — SSH is already available",
@@ -480,6 +717,15 @@ _CATALOGUE: dict[str, _Advice] = {
         ],
         effort="low",
         impact="medium",
+        attack_scenario=(
+            "An attacker targets the Telnet port (much easier to exploit than SSH) to "
+            "capture credentials in cleartext. Even if SSH is hardened, Telnet provides "
+            "an easy alternative entry point that bypasses all SSH security controls."
+        ),
+        likelihood=(
+            "Medium — Telnet is trivially exploitable once an attacker is on the LAN. "
+            "Its co-existence with SSH suggests it was never intentionally kept."
+        ),
     ),
 }
 
@@ -533,6 +779,8 @@ def generate_recommendations(db: Session, device_id: int) -> list[Recommendation
             steps=json.dumps(advice.steps),
             effort=advice.effort,
             impact=advice.impact,
+            attack_scenario=advice.attack_scenario,
+            likelihood=advice.likelihood,
             created_at=now,
             updated_at=now,
         )

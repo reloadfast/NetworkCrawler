@@ -78,6 +78,8 @@ export interface Recommendation {
   steps: string[];
   effort: Effort;
   impact: Impact;
+  attack_scenario: string | null;
+  likelihood: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
