@@ -265,3 +265,59 @@ def test_partial_scan_persists_arp_devices_when_nmap_fails(in_memory_session_fac
     devices = db.query(Device).filter(Device.ip_address == "192.168.1.50").all()
     assert len(devices) == 1
     db.close()
+
+
+@pytest.mark.unit
+def test_stale_ports_removed_on_rescan(in_memory_session_factory, monkeypatch):
+    """Ports from a previous scan that are absent in the current scan must be deleted."""
+    from app.models.device import Port
+    from app.scan_runner import run_scan_and_persist
+    from app.scanner import ScanResult
+    from app.scanner.nmap_scan import NmapHost, PortInfo
+
+    monkeypatch.setattr("app.scan_runner.SessionLocal", in_memory_session_factory)
+
+    # First scan: device has ports 22 and 80
+    first_result = ScanResult(
+        hosts=[
+            NmapHost(
+                ip="192.168.1.10",
+                hostname="myhost",
+                ports=[
+                    PortInfo(port_number=22, protocol="tcp", state="open", service_name="ssh"),
+                    PortInfo(port_number=80, protocol="tcp", state="open", service_name="http"),
+                ],
+            )
+        ],
+        arp_only=[],
+    )
+    with patch("app.scan_runner.orchestrate_scan", return_value=first_result):
+        run_scan_and_persist("manual")
+
+    db = in_memory_session_factory()
+    ports_after_first = db.query(Port).filter(Port.port_number.in_([22, 80])).all()
+    assert len(ports_after_first) == 2
+    db.close()
+
+    # Second scan: device now only has port 22 (80 closed)
+    second_result = ScanResult(
+        hosts=[
+            NmapHost(
+                ip="192.168.1.10",
+                hostname="myhost",
+                ports=[
+                    PortInfo(port_number=22, protocol="tcp", state="open", service_name="ssh"),
+                ],
+            )
+        ],
+        arp_only=[],
+    )
+    with patch("app.scan_runner.orchestrate_scan", return_value=second_result):
+        run_scan_and_persist("manual")
+
+    db2 = in_memory_session_factory()
+    remaining = db2.query(Port).all()
+    port_numbers = [p.port_number for p in remaining]
+    assert 22 in port_numbers
+    assert 80 not in port_numbers, "Stale port 80 should have been removed"
+    db2.close()

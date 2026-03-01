@@ -5,17 +5,12 @@
 import { memo, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, Badge, SkeletonCard, PageHeader } from "../components";
+import { SEV_RANK } from "../constants/severity";
 import { useRecommendations } from "../hooks";
-import type { Recommendation, Severity } from "../types/api";
+import type { Recommendation } from "../types/api";
 
 type SortKey = "severity" | "effort" | "impact";
 
-const SEV_ORDER: Record<Severity, number> = {
-  critical: 0,
-  high: 1,
-  medium: 2,
-  low: 3,
-};
 const EFFORT_ORDER: Record<string, number> = { low: 0, medium: 1, high: 2 };
 const IMPACT_ORDER: Record<string, number> = {
   critical: 0,
@@ -58,7 +53,7 @@ export function RecommendationsPage() {
     return [...recommendations].sort((a, b) => {
       switch (sortKey) {
         case "severity":
-          return (SEV_ORDER[a.severity] ?? 99) - (SEV_ORDER[b.severity] ?? 99);
+          return (SEV_RANK[a.severity] ?? 99) - (SEV_RANK[b.severity] ?? 99);
         case "effort":
           return (
             (EFFORT_ORDER[a.effort] ?? 99) - (EFFORT_ORDER[b.effort] ?? 99)

@@ -7,6 +7,7 @@ scheduler and the manual-trigger API endpoint.
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import os
 from dataclasses import dataclass, field
@@ -47,6 +48,11 @@ def orchestrate_scan(
     """
     iface = interface or os.environ.get("NETWORK_INTERFACE", "eth0")
     net = subnet or os.environ.get("SCAN_SUBNET", "192.168.1.0/24")
+
+    try:
+        ipaddress.ip_network(net, strict=False)
+    except ValueError as exc:
+        raise ValueError(f"Invalid SCAN_SUBNET '{net}': {exc}") from exc
 
     logger.info("Starting ARP scan on %s / %s", iface, net)
     arp_hosts = run_arp_scan(interface=iface, subnet=net)

@@ -4,16 +4,9 @@
  */
 import { useMemo } from "react";
 import { Card, PageHeader, SkeletonCard } from "../components";
+import { SEV_COLORS, SEV_LEVELS } from "../constants/severity";
 import { useScans } from "../hooks";
 import type { Scan } from "../types/api";
-
-// ── Colour palette ────────────────────────────────────────────────────────────
-const SEV_COLORS = {
-  critical: "var(--color-accent-danger)",
-  high: "var(--color-accent-warning)",
-  medium: "var(--color-accent-caution)",
-  low: "var(--color-accent-positive)",
-} as const;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -85,9 +78,6 @@ function BarChart({
 
 // ── Stacked bar chart (risk severity trend) ───────────────────────────────────
 
-type SevKey = "critical" | "high" | "medium" | "low";
-const SEV_KEYS: SevKey[] = ["critical", "high", "medium", "low"];
-
 interface StackedBarChartProps {
   data: {
     label: string;
@@ -119,7 +109,7 @@ function StackedBarChart({ data, height = 120 }: StackedBarChartProps) {
           let yOffset = height;
           return (
             <g key={i}>
-              {SEV_KEYS.map((sev) => {
+              {SEV_LEVELS.map((sev) => {
                 const val = d[sev];
                 const segH = Math.round((val / max) * height);
                 yOffset -= segH;
@@ -160,7 +150,7 @@ function StackedBarChart({ data, height = 120 }: StackedBarChartProps) {
 function SevLegend() {
   return (
     <div className="mt-2 flex flex-wrap gap-3">
-      {SEV_KEYS.map((sev) => (
+      {SEV_LEVELS.map((sev) => (
         <span
           key={sev}
           className="flex items-center gap-1 text-xs text-[var(--color-text-secondary)]"

@@ -5,10 +5,11 @@
 import { memo, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Card, Badge, SkeletonCard, PageHeader } from "../components";
+import { SEV_LEVELS } from "../constants/severity";
 import { useDevice, useRisks, useDeviceRecommendations } from "../hooks";
 import type { Risk, Recommendation, Severity } from "../types/api";
 
-const SEV_ORDER: Severity[] = ["critical", "high", "medium", "low"];
+const SEV_ORDER: Severity[] = SEV_LEVELS;
 
 const RiskCard = memo(function RiskCard({ risk }: { risk: Risk }) {
   return (
@@ -81,6 +82,7 @@ export function DeviceDetailPage() {
   const { recommendations, loading: recsLoading } =
     useDeviceRecommendations(deviceId);
   const [togglingTrust, setTogglingTrust] = useState(false);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // Build a map of risk_id → recommendation for O(1) lookup
   const recByRiskId = useMemo(() => {
@@ -119,12 +121,29 @@ export function DeviceDetailPage() {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
       })
       .then(() => refetch())
-      .catch(() => {})
+      .catch(() => {
+        setToastMsg("Failed to update trusted status. Please try again.");
+      })
       .finally(() => setTogglingTrust(false));
   };
 
   return (
     <div>
+      {toastMsg && (
+        <div
+          role="alert"
+          className="mb-4 rounded-lg border border-[var(--color-accent-danger)]/40 bg-[var(--color-accent-danger)]/10 px-4 py-2.5 text-sm text-[var(--color-accent-danger)]"
+        >
+          {toastMsg}
+          <button
+            onClick={() => setToastMsg(null)}
+            className="ml-3 font-bold opacity-70 hover:opacity-100"
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      )}
       <div className="mb-1 flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
         <Link
           to="/devices"

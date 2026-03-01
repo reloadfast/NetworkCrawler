@@ -107,6 +107,10 @@ def run_scan_and_persist(triggered_by: str = "scheduler") -> int:
 
 def _persist_result(db: Session, result: ScanResult) -> None:
     """Upsert all devices and ports from a ScanResult into the database."""
+    from sqlalchemy import select
+
+    from app.models.device import Port
+
     # Full nmap results
     for nh in result.hosts:
         device = upsert_device(
@@ -117,6 +121,8 @@ def _persist_result(db: Session, result: ScanResult) -> None:
             os_guess=nh.os_guess or None,
         )
         db.flush()
+
+        current_ports = {(p.port_number, p.protocol) for p in nh.ports}
         for port in nh.ports:
             upsert_port(
                 db,
@@ -126,6 +132,12 @@ def _persist_result(db: Session, result: ScanResult) -> None:
                 service_name=port.service_name or None,
                 version_banner=port.version_banner or None,
             )
+
+        # Remove ports no longer seen in this scan
+        existing_ports = db.execute(select(Port).where(Port.device_id == device.id)).scalars().all()
+        for existing in existing_ports:
+            if (existing.port_number, existing.protocol) not in current_ports:
+                db.delete(existing)
 
     # ARP-only hosts (no nmap data)
     for ah in result.arp_only:
