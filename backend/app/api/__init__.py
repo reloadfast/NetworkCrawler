@@ -527,3 +527,98 @@ def test_webhook(db: Annotated[Session, Depends(get_db)]) -> _TestWebhookRespons
         },
     )
     return _TestWebhookResponse(success=True, message=f"Test notification sent to {url}")
+
+
+# ── /api/changes ──────────────────────────────────────────────────────────────
+
+
+class ScanEventOut(BaseModel):
+    id: int
+    scan_id: int
+    device_id: int | None
+    event_type: str
+    detail: str | None
+    occurred_at: str | None
+    reviewed: bool
+
+
+class ChangesSummaryOut(BaseModel):
+    unreviewed: int
+
+
+@router.get("/changes", response_model=list[ScanEventOut])
+def list_changes(
+    db: Annotated[Session, Depends(get_db)],
+    reviewed: bool | None = None,
+    device_id: int | None = None,
+    limit: int = 200,
+) -> list[ScanEventOut]:
+    """Return scan change events, newest first."""
+    from app.models.scan_event import ScanEvent
+
+    stmt = select(ScanEvent).order_by(ScanEvent.occurred_at.desc()).limit(limit)
+    if reviewed is not None:
+        stmt = stmt.where(ScanEvent.reviewed == reviewed)
+    if device_id is not None:
+        stmt = stmt.where(ScanEvent.device_id == device_id)
+    events = db.execute(stmt).scalars().all()
+    return [_event_to_out(e) for e in events]
+
+
+@router.get("/changes/summary", response_model=ChangesSummaryOut)
+def changes_summary(db: Annotated[Session, Depends(get_db)]) -> ChangesSummaryOut:
+    """Return count of unreviewed change events."""
+    from sqlalchemy import func as sqlfunc
+
+    from app.models.scan_event import ScanEvent
+
+    count = db.execute(
+        select(sqlfunc.count()).select_from(ScanEvent).where(ScanEvent.reviewed == False)  # noqa: E712 — SQLAlchemy needs == False
+    ).scalar_one()
+    return ChangesSummaryOut(unreviewed=count or 0)
+
+
+@router.patch("/changes/{event_id}/reviewed", response_model=ScanEventOut)
+def mark_event_reviewed(
+    event_id: int,
+    db: Annotated[Session, Depends(get_db)],
+) -> ScanEventOut:
+    """Mark a single change event as reviewed."""
+    from app.models.scan_event import ScanEvent
+
+    event = db.execute(select(ScanEvent).where(ScanEvent.id == event_id)).scalar_one_or_none()
+    if event is None:
+        raise HTTPException(status_code=404, detail="Event not found")
+    event.reviewed = True
+    db.commit()
+    db.refresh(event)
+    return _event_to_out(event)
+
+
+@router.patch("/changes/reviewed/all", response_model=ChangesSummaryOut)
+def mark_all_reviewed(db: Annotated[Session, Depends(get_db)]) -> ChangesSummaryOut:
+    """Mark all unreviewed change events as reviewed."""
+    from app.models.scan_event import ScanEvent
+
+    db.execute(
+        select(ScanEvent).where(ScanEvent.reviewed == False)  # noqa: E712 — SQLAlchemy needs == False
+    )
+    from sqlalchemy import update as sa_update
+
+    db.execute(
+        sa_update(ScanEvent).where(ScanEvent.reviewed == False).values(reviewed=True)  # noqa: E712 — SQLAlchemy needs == False
+    )
+    db.commit()
+    return ChangesSummaryOut(unreviewed=0)
+
+
+def _event_to_out(e) -> ScanEventOut:  # noqa: ANN001 — SQLAlchemy instance
+    return ScanEventOut(
+        id=e.id,
+        scan_id=e.scan_id,
+        device_id=e.device_id,
+        event_type=e.event_type,
+        detail=e.detail,
+        occurred_at=e.occurred_at.isoformat() if e.occurred_at else None,
+        reviewed=bool(e.reviewed),
+    )

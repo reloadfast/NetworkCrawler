@@ -93,3 +93,23 @@ export interface HealthResponse {
   status: string;
   version: string;
 }
+
+export interface ScanEvent {
+  id: number;
+  scan_id: number;
+  device_id: number | null;
+  event_type:
+    | "device_appeared"
+    | "device_disappeared"
+    | "port_opened"
+    | "port_closed"
+    | "risk_appeared"
+    | "risk_resolved";
+  detail: string | null; // JSON string
+  occurred_at: string | null;
+  reviewed: boolean;
+}
+
+export interface ChangesSummary {
+  unreviewed: number;
+}

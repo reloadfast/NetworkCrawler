@@ -32,3 +32,10 @@ export { useToast } from "./useToast";
 
 export { useAppVersion } from "./useAppVersion";
 export type { UseAppVersionResult } from "./useAppVersion";
+
+export { useChanges, useChangesSummary } from "./useChanges";
+export type {
+  UseChangesResult,
+  UseChangesOptions,
+  UseChangesSummaryResult,
+} from "./useChanges";
