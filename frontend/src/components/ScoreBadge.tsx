@@ -2,8 +2,6 @@
  * ScoreBadge — displays a device's 0–100 security score with colour coding.
  * ≥70 green, 40–69 amber, <40 red.
  */
-import React from "react";
-
 interface ScoreBadgeProps {
   score: number;
   size?: "sm" | "md" | "lg";
