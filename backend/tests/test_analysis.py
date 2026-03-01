@@ -599,6 +599,153 @@ def test_check_wireguard_vpn_no_false_positive_tcp():
     assert check_wireguard_vpn(device) == []
 
 
+# ── check_multiple_admin_panels ───────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_check_multiple_admin_panels_fires_on_three_or_more():
+    from app.analysis.checks import check_multiple_admin_panels
+
+    device = _make_device(ports=[_make_port(80), _make_port(8080), _make_port(9000)])
+    results = check_multiple_admin_panels(device)
+    assert len(results) == 1
+    assert results[0].check_id == "multiple_admin_panels"
+    assert results[0].severity == "medium"
+
+
+@pytest.mark.unit
+def test_check_multiple_admin_panels_no_false_positive_two_ports():
+    from app.analysis.checks import check_multiple_admin_panels
+
+    device = _make_device(ports=[_make_port(80), _make_port(8080)])
+    assert check_multiple_admin_panels(device) == []
+
+
+# ── check_database_and_web_exposed ────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_check_database_and_web_exposed_fires_mysql_and_http():
+    from app.analysis.checks import check_database_and_web_exposed
+
+    device = _make_device(ports=[_make_port(3306), _make_port(80)])
+    results = check_database_and_web_exposed(device)
+    assert len(results) == 1
+    assert results[0].check_id == "database_and_web_exposed"
+    assert results[0].severity == "high"
+
+
+@pytest.mark.unit
+def test_check_database_and_web_exposed_fires_redis_and_http():
+    from app.analysis.checks import check_database_and_web_exposed
+
+    device = _make_device(ports=[_make_port(6379), _make_port(8080)])
+    results = check_database_and_web_exposed(device)
+    assert len(results) == 1
+    assert results[0].check_id == "database_and_web_exposed"
+
+
+@pytest.mark.unit
+def test_check_database_and_web_no_false_positive_db_only():
+    from app.analysis.checks import check_database_and_web_exposed
+
+    device = _make_device(ports=[_make_port(3306)])
+    assert check_database_and_web_exposed(device) == []
+
+
+@pytest.mark.unit
+def test_check_database_and_web_no_false_positive_https():
+    from app.analysis.checks import check_database_and_web_exposed
+
+    # 443 (HTTPS) is not a trigger — only plain HTTP 80/8080
+    device = _make_device(ports=[_make_port(3306), _make_port(443)])
+    assert check_database_and_web_exposed(device) == []
+
+
+# ── check_cleartext_credential_surface ───────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_check_cleartext_credential_surface_fires_all_three():
+    from app.analysis.checks import check_cleartext_credential_surface
+
+    device = _make_device(ports=[_make_port(23), _make_port(21), _make_port(80)])
+    results = check_cleartext_credential_surface(device)
+    assert len(results) == 1
+    assert results[0].check_id == "cleartext_credential_surface"
+    assert results[0].severity == "high"
+
+
+@pytest.mark.unit
+def test_check_cleartext_credential_surface_no_false_positive_missing_one():
+    from app.analysis.checks import check_cleartext_credential_surface
+
+    device = _make_device(ports=[_make_port(23), _make_port(21)])
+    assert check_cleartext_credential_surface(device) == []
+
+
+# ── check_remote_access_no_encryption ────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_check_remote_access_no_encryption_fires_rdp_only():
+    from app.analysis.checks import check_remote_access_no_encryption
+
+    device = _make_device(ports=[_make_port(3389)])
+    results = check_remote_access_no_encryption(device)
+    assert len(results) == 1
+    assert results[0].check_id == "remote_access_no_encryption"
+    assert results[0].severity == "high"
+
+
+@pytest.mark.unit
+def test_check_remote_access_no_encryption_no_false_positive_with_ssh():
+    from app.analysis.checks import check_remote_access_no_encryption
+
+    device = _make_device(ports=[_make_port(3389), _make_port(22)])
+    assert check_remote_access_no_encryption(device) == []
+
+
+@pytest.mark.unit
+def test_check_remote_access_no_encryption_fires_vnc_no_tls():
+    from app.analysis.checks import check_remote_access_no_encryption
+
+    device = _make_device(ports=[_make_port(5900)])
+    results = check_remote_access_no_encryption(device)
+    assert len(results) == 1
+    assert results[0].check_id == "remote_access_no_encryption"
+
+
+# ── check_ssh_and_telnet_both_open ────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_check_ssh_and_telnet_both_open_fires():
+    from app.analysis.checks import check_ssh_and_telnet_both_open
+
+    device = _make_device(ports=[_make_port(22), _make_port(23)])
+    results = check_ssh_and_telnet_both_open(device)
+    assert len(results) == 1
+    assert results[0].check_id == "ssh_and_telnet_both_open"
+    assert results[0].severity == "medium"
+
+
+@pytest.mark.unit
+def test_check_ssh_and_telnet_no_false_positive_ssh_only():
+    from app.analysis.checks import check_ssh_and_telnet_both_open
+
+    device = _make_device(ports=[_make_port(22)])
+    assert check_ssh_and_telnet_both_open(device) == []
+
+
+@pytest.mark.unit
+def test_check_ssh_and_telnet_no_false_positive_telnet_only():
+    from app.analysis.checks import check_ssh_and_telnet_both_open
+
+    device = _make_device(ports=[_make_port(23)])
+    assert check_ssh_and_telnet_both_open(device) == []
+
+
 # ── Integration: run_checks with real DB ─────────────────────────────────────
 
 

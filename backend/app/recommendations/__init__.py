@@ -402,6 +402,85 @@ _CATALOGUE: dict[str, _Advice] = {
         effort="low",
         impact="low",
     ),
+    "multiple_admin_panels": _Advice(
+        title="Reduce the management attack surface",
+        description=(
+            "Having many admin and remote-access ports open simultaneously increases the "
+            "number of ways an attacker can attempt to compromise the device."
+        ),
+        steps=[
+            "Audit each open management port and identify which services are actually in use.",
+            "Disable or stop any admin interfaces, remote desktop, or web UIs not actively needed.",
+            "Where possible, consolidate management to a single encrypted channel (SSH or HTTPS).",
+            "Apply firewall rules to restrict remaining management ports to trusted hosts only.",
+        ],
+        effort="low",
+        impact="medium",
+    ),
+    "database_and_web_exposed": _Advice(
+        title="Isolate the database from the network and enforce HTTPS",
+        description=(
+            "A database port open alongside an unencrypted web interface creates a "
+            "two-step path from public HTTP exploit to full database access."
+        ),
+        steps=[
+            "Bind the database to 127.0.0.1 or a private interface only — "
+            "it should never be network-accessible from outside the host.",
+            "If the database must be remotely managed, use an SSH tunnel.",
+            "Redirect all HTTP (port 80) traffic to HTTPS and obtain a TLS certificate.",
+            "Apply a firewall rule blocking the database port from all external sources.",
+        ],
+        effort="medium",
+        impact="high",
+    ),
+    "cleartext_credential_surface": _Advice(
+        title="Replace all cleartext protocols immediately",
+        description=(
+            "Running Telnet, FTP, and HTTP together means any credential entered on "
+            "this device can be captured by a passive network observer."
+        ),
+        steps=[
+            "Disable Telnet and replace with SSH for remote shell access.",
+            "Disable FTP and replace with SFTP or SCP.",
+            "Disable plain HTTP and serve all web content over HTTPS only.",
+            "After disabling, verify the ports are no longer listening with 'ss -tlnp'.",
+        ],
+        effort="low",
+        impact="high",
+    ),
+    "remote_access_no_encryption": _Advice(
+        title="Tunnel remote desktop through an encrypted channel",
+        description=(
+            "RDP and VNC without an encrypted wrapper expose session content and "
+            "credentials to anyone on the same network."
+        ),
+        steps=[
+            "Do not expose RDP (3389) or VNC (5900) directly on the LAN if avoidable.",
+            "Set up a VPN (WireGuard, OpenVPN) and access the device only through it.",
+            "Alternatively, tunnel RDP/VNC over an SSH port forward.",
+            "If direct access is required, enable NLA (Network Level Authentication) "
+            "for RDP and set a strong VNC password with TLS where supported.",
+            "Apply a firewall rule to restrict RDP/VNC to specific trusted host IPs.",
+        ],
+        effort="medium",
+        impact="high",
+    ),
+    "ssh_and_telnet_both_open": _Advice(
+        title="Disable Telnet — SSH is already available",
+        description=(
+            "SSH is already running, making Telnet entirely redundant and dangerous. "
+            "Disable it immediately."
+        ),
+        steps=[
+            "Identify and stop the Telnet service: "
+            "'sudo systemctl stop telnet' or 'sudo systemctl disable inetd'.",
+            "Verify Telnet is no longer listening: 'ss -tlnp | grep 23'.",
+            "Ensure SSH is configured with key-based authentication and "
+            "PasswordAuthentication disabled in /etc/ssh/sshd_config.",
+        ],
+        effort="low",
+        impact="medium",
+    ),
 }
 
 
