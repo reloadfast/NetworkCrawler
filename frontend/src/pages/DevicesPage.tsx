@@ -4,7 +4,13 @@
  */
 import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Card, Badge, SkeletonTable, PageHeader } from "../components";
+import {
+  Card,
+  Badge,
+  SkeletonTable,
+  PageHeader,
+  ScoreBadge,
+} from "../components";
 import { useDevices, useRisks } from "../hooks";
 import type { Device } from "../types/api";
 
@@ -97,6 +103,7 @@ type SortKey =
   | "os_guess"
   | "ports"
   | "risks"
+  | "score"
   | "last_seen";
 type SortDir = "asc" | "desc";
 
@@ -129,6 +136,10 @@ function sortDevices(
       case "risks":
         av = riskCounts[a.id] ?? 0;
         bv = riskCounts[b.id] ?? 0;
+        break;
+      case "score":
+        av = a.security_score;
+        bv = b.security_score;
         break;
       case "last_seen":
         av = a.last_seen ?? "";
@@ -268,6 +279,7 @@ export function DevicesPage() {
                       ["os_guess", "OS"],
                       ["ports", "Ports"],
                       ["risks", "Risks"],
+                      ["score", "Score"],
                       ["last_seen", "Last Seen"],
                     ] as [SortKey, string][]
                   ).map(([key, label]) => (
@@ -344,6 +356,9 @@ export function DevicesPage() {
                       ) : (
                         <Badge variant="neutral">0</Badge>
                       )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <ScoreBadge score={device.security_score} size="sm" />
                     </td>
                     <td className="px-4 py-3 text-[var(--color-text-secondary)]">
                       {device.last_seen

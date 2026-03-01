@@ -23,6 +23,7 @@ export interface Device {
   first_seen: string | null; // ISO-8601
   last_seen: string | null;
   ports: Port[];
+  security_score: number; // 0–100
 }
 
 export interface Scan {
