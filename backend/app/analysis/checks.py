@@ -608,6 +608,57 @@ def check_wireguard_vpn(device: Device) -> list[RiskData]:
     ]
 
 
+# ── IoT-specific checks ───────────────────────────────────────────────────────
+
+
+def check_iot_admin_panel_http(device: Device) -> list[RiskData]:
+    """MEDIUM — IoT device with plain HTTP admin panel (port 80/8080)."""
+    if getattr(device, "device_type", None) != "iot":
+        return []
+    http_ports = _has_port(device, 80, 8080)
+    if not http_ports:
+        return []
+    port_list = ", ".join(str(p.port_number) for p in http_ports)
+    return [
+        RiskData(
+            check_id="iot_admin_panel_http",
+            severity="medium",
+            title="IoT device admin panel accessible over plain HTTP",
+            description=(
+                f"IoT device {device.ip_address} exposes an admin panel on port "
+                f"{port_list} over unencrypted HTTP. "
+                "Credentials and device configuration are transmitted in plain text, "
+                "making them easy to intercept on a shared Wi-Fi network."
+            ),
+        )
+    ]
+
+
+def check_iot_remote_shell(device: Device) -> list[RiskData]:
+    """HIGH — IoT device with Telnet or SSH open (unexpected for consumer IoT)."""
+    if getattr(device, "device_type", None) != "iot":
+        return []
+    shell_ports = _has_port(device, 22, 23)
+    if not shell_ports:
+        return []
+    port_names = {22: "SSH", 23: "Telnet"}
+    services = ", ".join(port_names.get(p.port_number, str(p.port_number)) for p in shell_ports)
+    return [
+        RiskData(
+            check_id="iot_remote_shell",
+            severity="high",
+            title="IoT device exposes a remote shell",
+            description=(
+                f"IoT device {device.ip_address} has {services} open. "
+                "Consumer IoT devices rarely require remote shell access and its presence "
+                "may indicate firmware backdoors, manufacturer debug ports, or a "
+                "compromised device. Investigate whether this service is intentional "
+                "and disable it if not required."
+            ),
+        )
+    ]
+
+
 # ── Compound / pattern-based checks ──────────────────────────────────────────
 
 
@@ -755,6 +806,9 @@ ALL_CHECKS = [
     check_home_assistant_exposed,
     check_tftp_open,
     check_wireguard_vpn,
+    # IoT-specific checks
+    check_iot_admin_panel_http,
+    check_iot_remote_shell,
     # Compound / pattern checks
     check_multiple_admin_panels,
     check_database_and_web_exposed,

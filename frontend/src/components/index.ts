@@ -25,3 +25,5 @@ export type { ScanBannerProps } from "./ScanBanner";
 export { PageHeader } from "./PageHeader";
 
 export { ScoreBadge } from "./ScoreBadge";
+
+export { DeviceTypeBadge } from "./DeviceTypeBadge";

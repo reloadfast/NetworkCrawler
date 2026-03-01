@@ -35,6 +35,7 @@ class DeviceOut(BaseModel):
     os_guess: str | None
     label: str | None
     trusted: bool
+    device_type: str | None  # iot | server | router | workstation | unknown
     first_seen: str | None  # ISO-8601 string
     last_seen: str | None
     ports: list[PortOut] = []
@@ -173,6 +174,7 @@ def _device_to_out(d) -> DeviceOut:  # noqa: ANN001 — SQLAlchemy instance, val
         os_guess=d.os_guess,
         label=d.label,
         trusted=bool(d.trusted),
+        device_type=d.device_type,
         first_seen=d.first_seen.isoformat() if d.first_seen else None,
         last_seen=d.last_seen.isoformat() if d.last_seen else None,
         security_score=_device_security_score(d),

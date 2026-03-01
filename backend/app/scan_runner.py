@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
+from app.analysis.device_classifier import classify_device_type
 from app.db import SessionLocal, upsert_device, upsert_port
 from app.scanner import ScanResult, orchestrate_scan
 
@@ -175,6 +176,11 @@ def _persist_result(db: Session, result: ScanResult) -> _PersistSummary:
             hostname=nh.hostname or None,
             os_guess=nh.os_guess or None,
         )
+        device.device_type = classify_device_type(
+            vendor=device.vendor,
+            hostname=nh.hostname or None,
+            os_guess=nh.os_guess or None,
+        )
         db.flush()
         if nh.ip not in existing_ips:
             summary.new_device_ids.append(device.id)
@@ -232,6 +238,11 @@ def _persist_result(db: Session, result: ScanResult) -> _PersistSummary:
             ip_address=ah.ip,
             mac_address=ah.mac or None,
             vendor=ah.vendor or None,
+        )
+        device.device_type = classify_device_type(
+            vendor=ah.vendor or None,
+            hostname=device.hostname,
+            os_guess=device.os_guess,
         )
         db.flush()
         if ah.ip not in existing_ips:

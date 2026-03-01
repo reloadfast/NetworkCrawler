@@ -37,6 +37,7 @@ def _migrate_schema(engine) -> None:
         ("devices", "label", "TEXT"),
         ("recommendations", "attack_scenario", "TEXT"),
         ("recommendations", "likelihood", "TEXT"),
+        ("devices", "device_type", "TEXT DEFAULT 'unknown'"),
     ]
     with engine.connect() as conn:
         for table, column, col_def in migrations:

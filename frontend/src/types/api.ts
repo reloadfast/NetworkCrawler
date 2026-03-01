@@ -11,6 +11,13 @@ export interface Port {
   version_banner: string | null;
 }
 
+export type DeviceType =
+  | "iot"
+  | "server"
+  | "router"
+  | "workstation"
+  | "unknown";
+
 export interface Device {
   id: number;
   ip_address: string;
@@ -20,6 +27,7 @@ export interface Device {
   os_guess: string | null;
   label: string | null;
   trusted: boolean;
+  device_type: DeviceType | null;
   first_seen: string | null; // ISO-8601
   last_seen: string | null;
   ports: Port[];
