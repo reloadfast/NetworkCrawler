@@ -4,7 +4,9 @@
 # Stage 2 — production image (Python slim): runs FastAPI and serves frontend assets.
 #
 # Security notes:
-#   • Container runs as a non-root user (uid/gid 1000).
+#   • The entrypoint runs briefly as root only to repair /app/data ownership
+#     on volumes created by the old VOLUME-based image, then drops to uid 1000
+#     (crawler) via gosu before exec-ing uvicorn.
 #   • Raw socket access for nmap/arp-scan is granted via --cap-add=NET_RAW at
 #     runtime (see docker-compose.yml). Do NOT run the container as root.
 #   • Host network mode is required so arp-scan can reach the LAN broadcast domain.
@@ -33,13 +35,15 @@ LABEL org.opencontainers.image.title="NetworkCrawler" \
       org.opencontainers.image.vendor="talesofthemoon" \
       org.opencontainers.image.licenses="MIT"
 
-# Install system-level scanning tools + libcap2-bin for setcap
+# Install system-level scanning tools + libcap2-bin for setcap + gosu for
+# privilege dropping in the entrypoint (fixes volume ownership on upgrade).
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         nmap \
         arp-scan \
         avahi-utils \
         libcap2-bin \
+        gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Grant cap_net_raw to the scanner binaries so they can open raw sockets when
@@ -74,8 +78,10 @@ COPY --from=frontend-build /build/dist ./frontend/dist
 # Persist the SQLite database in a dedicated data directory
 RUN mkdir -p /app/data && chown -R crawler:crawler /app
 
-# Drop to non-root
-USER crawler
+# Entrypoint: runs as root to repair /app/data ownership on volumes created by
+# the old VOLUME-based image, then drops to uid 1000 (crawler) via gosu.
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # FastAPI listens on 8000; the host-network container is accessible on <host-ip>:8000
 EXPOSE 8000
@@ -84,6 +90,7 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", \
      "--host", "0.0.0.0", \
      "--port", "8000", \
