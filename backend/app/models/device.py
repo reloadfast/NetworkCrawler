@@ -30,6 +30,7 @@ class Device(Base):
     vendor = Column(String, nullable=True)  # hardware vendor from arp-scan OUI lookup
     hostname = Column(String, nullable=True)
     os_guess = Column(String, nullable=True)
+    label = Column(String, nullable=True)  # user-assigned friendly name
     trusted = Column(Boolean, nullable=False, default=False, server_default="0")
     first_seen = Column(DateTime, default=func.now())
     last_seen = Column(DateTime, default=func.now(), onupdate=func.now())

@@ -18,6 +18,7 @@ export interface Device {
   vendor: string | null;
   hostname: string | null;
   os_guess: string | null;
+  label: string | null;
   trusted: boolean;
   first_seen: string | null; // ISO-8601
   last_seen: string | null;

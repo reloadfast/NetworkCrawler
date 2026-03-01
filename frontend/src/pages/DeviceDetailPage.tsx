@@ -2,7 +2,7 @@
  * DeviceDetailPage — ports/services table, risk list, timestamps.
  * Route: /devices/:id
  */
-import { memo, useMemo, useState } from "react";
+import { memo, useRef, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Card, Badge, SkeletonCard, PageHeader } from "../components";
 import { SEV_LEVELS } from "../constants/severity";
@@ -83,6 +83,13 @@ export function DeviceDetailPage() {
     useDeviceRecommendations(deviceId);
   const [togglingTrust, setTogglingTrust] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [label, setLabel] = useState<string | null | undefined>(undefined); // undefined = use device.label
+  const [editingLabel, setEditingLabel] = useState(false);
+  const [labelDraft, setLabelDraft] = useState("");
+  const [savingLabel, setSavingLabel] = useState(false);
+  const labelInputRef = useRef<HTMLInputElement>(null);
+
+  const displayLabel = label !== undefined ? label : device?.label;
 
   // Build a map of risk_id → recommendation for O(1) lookup
   const recByRiskId = useMemo(() => {
@@ -109,6 +116,23 @@ export function DeviceDetailPage() {
   const sortedRisks = [...risks].sort(
     (a, b) => SEV_ORDER.indexOf(a.severity) - SEV_ORDER.indexOf(b.severity),
   );
+
+  const handleSaveLabel = () => {
+    setSavingLabel(true);
+    const newLabel = labelDraft.trim() || null;
+    fetch(`/api/devices/${deviceId}/label`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label: newLabel }),
+    })
+      .then((r) => r.json())
+      .then((d: { label: string | null }) => setLabel(d.label))
+      .catch(() => {})
+      .finally(() => {
+        setSavingLabel(false);
+        setEditingLabel(false);
+      });
+  };
 
   const handleToggleTrust = () => {
     setTogglingTrust(true);
@@ -158,7 +182,7 @@ export function DeviceDetailPage() {
       </div>
       <PageHeader
         title={device.ip_address}
-        subtitle={device.hostname ?? undefined}
+        subtitle={displayLabel ?? device.hostname ?? undefined}
         action={
           <div className="flex items-center gap-3">
             {device.trusted && (
@@ -190,6 +214,57 @@ export function DeviceDetailPage() {
       {/* Device metadata */}
       <Card className="mb-6">
         <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
+          {/* Label — inline editable */}
+          <div className="flex flex-col">
+            <dt className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
+              Label
+            </dt>
+            <dd className="font-mono text-[var(--color-text-primary)]">
+              {editingLabel ? (
+                <input
+                  ref={labelInputRef}
+                  autoFocus
+                  value={labelDraft}
+                  onChange={(e) => setLabelDraft(e.target.value)}
+                  onBlur={handleSaveLabel}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      labelInputRef.current?.blur();
+                    } else if (e.key === "Escape") {
+                      setEditingLabel(false);
+                    }
+                  }}
+                  disabled={savingLabel}
+                  className="w-full rounded border border-[var(--color-accent-primary)] bg-[var(--color-background)] px-1.5 py-0.5 text-sm focus:outline-none"
+                  placeholder="Add label…"
+                />
+              ) : (
+                <span className="group flex items-center gap-1.5">
+                  <span
+                    className={
+                      !displayLabel
+                        ? "text-[var(--color-text-secondary)]"
+                        : undefined
+                    }
+                  >
+                    {displayLabel ?? "—"}
+                  </span>
+                  <button
+                    onClick={() => {
+                      setLabelDraft(displayLabel ?? "");
+                      setEditingLabel(true);
+                    }}
+                    aria-label="Edit label"
+                    title="Edit label"
+                    className="opacity-0 group-hover:opacity-60 hover:!opacity-100 text-xs transition-opacity"
+                  >
+                    ✏
+                  </button>
+                </span>
+              )}
+            </dd>
+          </div>
           {[
             ["Hostname", device.hostname ?? "—"],
             ["MAC Address", device.mac_address ?? "—"],
@@ -207,10 +282,10 @@ export function DeviceDetailPage() {
                 ? new Date(device.last_seen).toLocaleString()
                 : "—",
             ],
-          ].map(([label, value]) => (
-            <div key={label} className="flex flex-col">
+          ].map(([lbl, value]) => (
+            <div key={lbl} className="flex flex-col">
               <dt className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
-                {label}
+                {lbl}
               </dt>
               <dd className="font-mono text-[var(--color-text-primary)]">
                 {value}
