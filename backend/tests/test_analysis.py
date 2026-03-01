@@ -858,3 +858,126 @@ def test_trusted_device_generates_no_risks(db_session):
         db_session.execute(sa_select(Risk).where(Risk.device_id == device.id)).scalars().all()
     )
     assert remaining == []
+
+
+# ── device_classifier ─────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_classifier_iot_vendor():
+    from app.analysis.device_classifier import classify_device_type
+
+    assert classify_device_type("Espressif Inc.", None, None) == "iot"
+
+
+@pytest.mark.unit
+def test_classifier_iot_hostname():
+    from app.analysis.device_classifier import classify_device_type
+
+    assert classify_device_type(None, "shelly-relay-1", None) == "iot"
+
+
+@pytest.mark.unit
+def test_classifier_server_vendor():
+    from app.analysis.device_classifier import classify_device_type
+
+    assert classify_device_type("QNAP Systems", None, None) == "server"
+
+
+@pytest.mark.unit
+def test_classifier_server_hostname():
+    from app.analysis.device_classifier import classify_device_type
+
+    assert classify_device_type(None, "proxmox-node1", None) == "server"
+
+
+@pytest.mark.unit
+def test_classifier_router_vendor():
+    from app.analysis.device_classifier import classify_device_type
+
+    assert classify_device_type("MikroTik", None, None) == "router"
+
+
+@pytest.mark.unit
+def test_classifier_workstation_os():
+    from app.analysis.device_classifier import classify_device_type
+
+    assert classify_device_type(None, None, "Windows 10") == "workstation"
+
+
+@pytest.mark.unit
+def test_classifier_unknown():
+    from app.analysis.device_classifier import classify_device_type
+
+    assert classify_device_type(None, None, None) == "unknown"
+
+
+# ── check_iot_admin_panel_http ────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_iot_admin_http_fires_for_iot_on_port_80():
+    from app.analysis.checks import check_iot_admin_panel_http
+
+    device = _make_device(ports=[_make_port(80)])
+    device.device_type = "iot"
+    results = check_iot_admin_panel_http(device)
+    assert len(results) == 1
+    assert results[0].check_id == "iot_admin_panel_http"
+    assert results[0].severity == "medium"
+
+
+@pytest.mark.unit
+def test_iot_admin_http_skips_non_iot():
+    from app.analysis.checks import check_iot_admin_panel_http
+
+    device = _make_device(ports=[_make_port(80)])
+    device.device_type = "server"
+    results = check_iot_admin_panel_http(device)
+    assert results == []
+
+
+@pytest.mark.unit
+def test_iot_admin_http_skips_no_http():
+    from app.analysis.checks import check_iot_admin_panel_http
+
+    device = _make_device(ports=[_make_port(443)])
+    device.device_type = "iot"
+    results = check_iot_admin_panel_http(device)
+    assert results == []
+
+
+# ── check_iot_remote_shell ────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_iot_remote_shell_fires_for_iot_ssh():
+    from app.analysis.checks import check_iot_remote_shell
+
+    device = _make_device(ports=[_make_port(22)])
+    device.device_type = "iot"
+    results = check_iot_remote_shell(device)
+    assert len(results) == 1
+    assert results[0].check_id == "iot_remote_shell"
+    assert results[0].severity == "high"
+
+
+@pytest.mark.unit
+def test_iot_remote_shell_fires_for_iot_telnet():
+    from app.analysis.checks import check_iot_remote_shell
+
+    device = _make_device(ports=[_make_port(23)])
+    device.device_type = "iot"
+    results = check_iot_remote_shell(device)
+    assert len(results) == 1
+    assert results[0].check_id == "iot_remote_shell"
+
+
+@pytest.mark.unit
+def test_iot_remote_shell_skips_non_iot():
+    from app.analysis.checks import check_iot_remote_shell
+
+    device = _make_device(ports=[_make_port(22)])
+    device.device_type = "server"
+    results = check_iot_remote_shell(device)
+    assert results == []

@@ -10,9 +10,10 @@ import {
   SkeletonTable,
   PageHeader,
   ScoreBadge,
+  DeviceTypeBadge,
 } from "../components";
 import { useDevices, useRisks } from "../hooks";
-import type { Device } from "../types/api";
+import type { Device, DeviceType } from "../types/api";
 
 /** Inline label editor that saves on blur or Enter, cancels on Escape. */
 function LabelCell({
@@ -167,6 +168,7 @@ export function DevicesPage() {
   const { risks } = useRisks();
   const [filter, setFilter] = useState("");
   const [osFilter, setOsFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState<DeviceType | "">("");
   const [sortKey, setSortKey] = useState<SortKey>("ip_address");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
@@ -194,9 +196,10 @@ export function DevicesPage() {
           (d.hostname ?? "").toLowerCase().includes(q) ||
           (d.mac_address ?? "").toLowerCase().includes(q) ||
           (d.os_guess ?? "").toLowerCase().includes(q)) &&
-        (osFilter === "" || d.os_guess === osFilter),
+        (osFilter === "" || d.os_guess === osFilter) &&
+        (typeFilter === "" || d.device_type === typeFilter),
     );
-  }, [devices, filter, osFilter]);
+  }, [devices, filter, osFilter, typeFilter]);
 
   const sorted = useMemo(
     () => sortDevices(filtered, riskCounts, sortKey, sortDir),
@@ -249,6 +252,19 @@ export function DevicesPage() {
                 ))}
               </select>
             )}
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value as DeviceType | "")}
+              aria-label="Filter by device type"
+              className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent-primary)]"
+            >
+              <option value="">All Types</option>
+              <option value="iot">IoT</option>
+              <option value="server">Server</option>
+              <option value="router">Router</option>
+              <option value="workstation">Workstation</option>
+              <option value="unknown">Unknown</option>
+            </select>
           </div>
         }
       />
@@ -300,13 +316,16 @@ export function DevicesPage() {
                       <SortIcon k={key} />
                     </th>
                   ))}
+                  <th scope="col" className="px-4 py-3">
+                    Type
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {sorted.length === 0 && (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={8}
                       className="px-4 py-8 text-center text-[var(--color-text-secondary)]"
                     >
                       No devices match the filter.
@@ -364,6 +383,9 @@ export function DevicesPage() {
                       {device.last_seen
                         ? new Date(device.last_seen).toLocaleString()
                         : "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <DeviceTypeBadge type={device.device_type} />
                     </td>
                   </tr>
                 ))}

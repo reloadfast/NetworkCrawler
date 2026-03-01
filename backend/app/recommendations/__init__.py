@@ -727,6 +727,59 @@ _CATALOGUE: dict[str, _Advice] = {
             "Its co-existence with SSH suggests it was never intentionally kept."
         ),
     ),
+    "iot_admin_panel_http": _Advice(
+        title="Enable HTTPS on the IoT device admin panel",
+        description=(
+            "This IoT device exposes its admin interface over plain HTTP. "
+            "Credentials and settings can be intercepted by anyone on the same network."
+        ),
+        steps=[
+            "Access the IoT device's admin panel in your browser.",
+            "Check the Settings or Network section for HTTPS or TLS options.",
+            "If HTTPS is available, enable it and disable plain HTTP.",
+            "If HTTPS is not available, check for a firmware update that adds TLS support.",
+            "As a mitigation, apply a firewall rule limiting access to the admin port "
+            "to trusted management hosts only.",
+        ],
+        effort="low",
+        impact="medium",
+        attack_scenario=(
+            "An attacker on your Wi-Fi intercepts the HTTP session to your IoT device "
+            "and captures your login credentials or session cookie. They then change "
+            "device settings, disable firmware updates, or use the device as a pivot "
+            "point into the rest of the network."
+        ),
+        likelihood=(
+            "Medium — many consumer IoT devices ship with HTTP-only management interfaces. "
+            "The risk is amplified on networks where IoT devices share Wi-Fi with workstations."
+        ),
+    ),
+    "iot_remote_shell": _Advice(
+        title="Disable the remote shell on this IoT device",
+        description=(
+            "Consumer IoT devices should not expose SSH or Telnet. "
+            "Its presence may indicate a debug port, backdoor, or compromised firmware."
+        ),
+        steps=[
+            "Identify the shell service (SSH port 22 or Telnet port 23).",
+            "Access the device's admin UI and disable remote shell access if the option exists.",
+            "Check the manufacturer's support pages for a firmware update or security advisory.",
+            "If the service cannot be disabled, apply a firewall rule to block the port.",
+            "Consider whether the device should be replaced if no fix is available.",
+        ],
+        effort="medium",
+        impact="high",
+        attack_scenario=(
+            "Many consumer IoT devices ship with hard-coded credentials for debug SSH or "
+            "Telnet access. An attacker connects using published default credentials, gains "
+            "root access to the device, and uses it as a persistent foothold in your network."
+        ),
+        likelihood=(
+            "Medium — especially for older or budget IoT devices. Hard-coded credentials "
+            "for SSH/Telnet on IoT firmware are a known vulnerability class with "
+            "published exploit databases."
+        ),
+    ),
 }
 
 

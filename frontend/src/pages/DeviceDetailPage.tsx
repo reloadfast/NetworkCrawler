@@ -10,6 +10,7 @@ import {
   SkeletonCard,
   PageHeader,
   ScoreBadge,
+  DeviceTypeBadge,
 } from "../components";
 import { SEV_LEVELS } from "../constants/severity";
 import { useDevice, useRisks, useDeviceRecommendations } from "../hooks";
@@ -298,6 +299,14 @@ export function DeviceDetailPage() {
               </dd>
             </div>
           ))}
+          <div className="flex flex-col">
+            <dt className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
+              Device Type
+            </dt>
+            <dd className="mt-1">
+              <DeviceTypeBadge type={device.device_type} size="md" />
+            </dd>
+          </div>
           <div className="flex flex-col">
             <dt className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
               Security Score
