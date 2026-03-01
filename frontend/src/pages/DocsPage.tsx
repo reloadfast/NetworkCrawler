@@ -3,17 +3,12 @@
  * configuration reference, and practical how-to guides.
  * Route: /docs
  */
+import type { ReactNode } from "react";
 import { Card, PageHeader } from "../components";
 
 // ── Shared primitives ────────────────────────────────────────────────────────
 
-function SectionHeading({
-  id,
-  children,
-}: {
-  id: string;
-  children: React.ReactNode;
-}) {
+function SectionHeading({ id, children }: { id: string; children: ReactNode }) {
   return (
     <h2
       id={id}
@@ -24,7 +19,7 @@ function SectionHeading({
   );
 }
 
-function H3({ children }: { children: React.ReactNode }) {
+function H3({ children }: { children: ReactNode }) {
   return (
     <h3 className="mb-2 text-sm font-semibold text-[var(--color-text-primary)]">
       {children}
@@ -32,7 +27,7 @@ function H3({ children }: { children: React.ReactNode }) {
   );
 }
 
-function P({ children }: { children: React.ReactNode }) {
+function P({ children }: { children: ReactNode }) {
   return (
     <p className="text-sm leading-relaxed text-[var(--color-text-secondary)]">
       {children}
@@ -40,7 +35,7 @@ function P({ children }: { children: React.ReactNode }) {
   );
 }
 
-function UL({ children }: { children: React.ReactNode }) {
+function UL({ children }: { children: ReactNode }) {
   return (
     <ul className="mt-2 space-y-1 text-sm text-[var(--color-text-secondary)]">
       {children}
@@ -48,7 +43,7 @@ function UL({ children }: { children: React.ReactNode }) {
   );
 }
 
-function LI({ children }: { children: React.ReactNode }) {
+function LI({ children }: { children: ReactNode }) {
   return (
     <li className="flex gap-2">
       <span className="mt-0.5 shrink-0 text-[var(--color-accent-primary)]">
@@ -59,7 +54,7 @@ function LI({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Code({ children }: { children: React.ReactNode }) {
+function Code({ children }: { children: ReactNode }) {
   return (
     <code className="rounded bg-[var(--color-border)]/40 px-1.5 py-0.5 font-mono text-xs text-[var(--color-text-primary)]">
       {children}
@@ -67,7 +62,7 @@ function Code({ children }: { children: React.ReactNode }) {
   );
 }
 
-function CodeBlock({ children }: { children: React.ReactNode }) {
+function CodeBlock({ children }: { children: ReactNode }) {
   return (
     <pre className="mt-2 overflow-x-auto rounded-md bg-[var(--color-border)]/30 p-3 font-mono text-xs leading-relaxed text-[var(--color-text-primary)]">
       {children}
@@ -394,7 +389,7 @@ sudo systemctl restart avahi-daemon`}</CodeBlock>
 # Navigate to: System Options → Hostname
 # Or directly:
 echo "my-pi" | sudo tee /etc/hostname
-sudo sed -i 's/127\.0\.1\.1.*/127.0.1.1\tmy-pi/' /etc/hosts
+sudo sed -i 's/127\\.0\\.1\\.1.*/127.0.1.1\\tmy-pi/' /etc/hosts
 sudo reboot`}</CodeBlock>
                 </div>
 
