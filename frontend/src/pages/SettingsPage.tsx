@@ -6,16 +6,38 @@ import { useState } from "react";
 import { Card, PageHeader } from "../components";
 import { useAppVersion } from "../hooks/useAppVersion";
 
+/** Copy text to clipboard; works on HTTP as well as HTTPS. */
+function copyViaExecCommand(text: string): void {
+  const el = document.createElement("textarea");
+  el.value = text;
+  el.style.position = "fixed";
+  el.style.opacity = "0";
+  document.body.appendChild(el);
+  el.select();
+  document.execCommand("copy");
+  document.body.removeChild(el);
+}
+
 export function SettingsPage() {
   const { version, loading } = useAppVersion();
   const [copied, setCopied] = useState(false);
 
   const handleCopyVersion = () => {
     if (!version) return;
-    navigator.clipboard.writeText(`v${version}`).then(() => {
+    const text = `v${version}`;
+    const flash = () => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    });
+    };
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(flash).catch(() => {
+        copyViaExecCommand(text);
+        flash();
+      });
+    } else {
+      copyViaExecCommand(text);
+      flash();
+    }
   };
 
   return (
