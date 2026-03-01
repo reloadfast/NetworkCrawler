@@ -32,6 +32,8 @@ def _migrate_schema(engine) -> None:
         ("devices", "trusted", "BOOLEAN NOT NULL DEFAULT 0"),
         ("scans", "current_stage", "TEXT"),
         ("scans", "warning_message", "TEXT"),
+        ("risks", "acknowledged_at", "DATETIME"),
+        ("risks", "acknowledged_note", "TEXT"),
     ]
     with engine.connect() as conn:
         for table, column, col_def in migrations:

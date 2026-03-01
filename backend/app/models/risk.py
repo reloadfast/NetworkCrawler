@@ -22,5 +22,7 @@ class Risk(Base):
     title = Column(String, nullable=False)
     description = Column(Text, nullable=False)
     detected_at = Column(DateTime, nullable=False, default=func.now())
+    acknowledged_at = Column(DateTime, nullable=True)
+    acknowledged_note = Column(String, nullable=True)
 
     device = relationship("Device", back_populates="risks")

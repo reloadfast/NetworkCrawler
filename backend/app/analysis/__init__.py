@@ -63,16 +63,23 @@ def run_checks(db: Session, device_id: int) -> list[Risk]:
                 "Check %s raised an exception for device %d", check_fn.__name__, device_id
             )
 
-    # Build a set of check_ids that fired so we can delete stale entries
+    # Preserve any existing acknowledgements keyed on check_id before deleting rows
+    ack_by_check: dict[str, tuple] = {
+        r.check_id: (r.acknowledged_at, r.acknowledged_note)
+        for r in existing
+        if r.acknowledged_at is not None
+    }
+
     # Delete existing Risk rows for this device (replace fired ones, remove resolved ones)
     for risk in existing:
         db.delete(risk)
 
     db.flush()
 
-    # Insert fresh Risk rows
+    # Insert fresh Risk rows, re-applying any saved acknowledgements
     written: list[Risk] = []
     for rd in all_findings:
+        ack_at, ack_note = ack_by_check.get(rd.check_id, (None, None))
         risk = Risk(
             device_id=device_id,
             severity=rd.severity,
@@ -80,6 +87,8 @@ def run_checks(db: Session, device_id: int) -> list[Risk]:
             title=rd.title,
             description=rd.description,
             detected_at=datetime.now(tz=UTC),
+            acknowledged_at=ack_at,
+            acknowledged_note=ack_note,
         )
         db.add(risk)
         written.append(risk)

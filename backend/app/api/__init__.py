@@ -191,6 +191,8 @@ class RiskOut(BaseModel):
     title: str
     description: str
     detected_at: str | None
+    acknowledged_at: str | None
+    acknowledged_note: str | None
 
     model_config = {"from_attributes": True}
 
@@ -211,12 +213,14 @@ def list_risks(
     db: Annotated[Session, Depends(get_db)],
     severity: _SeverityParam | None = None,
     device_id: int | None = None,
+    acknowledged: bool | None = None,
 ) -> list[RiskOut]:
     """Return risk findings, ordered by severity then detected_at.
 
     Optional query parameters:
     - ``severity``: filter to a single severity level (critical/high/medium/low)
     - ``device_id``: filter to risks belonging to a specific device
+    - ``acknowledged``: ``true`` → acknowledged only; ``false`` → active only; omit → all
     """
     from app.models.risk import Risk
 
@@ -226,6 +230,10 @@ def list_risks(
         stmt = stmt.where(Risk.severity == severity)
     if device_id is not None:
         stmt = stmt.where(Risk.device_id == device_id)
+    if acknowledged is True:
+        stmt = stmt.where(Risk.acknowledged_at.isnot(None))
+    elif acknowledged is False:
+        stmt = stmt.where(Risk.acknowledged_at.is_(None))
     risks = db.execute(stmt).scalars().all()
     risks_sorted = sorted(
         risks, key=lambda r: (severity_order.get(r.severity, 99), r.detected_at or "")
@@ -235,10 +243,12 @@ def list_risks(
 
 @router.get("/risks/summary", response_model=RiskSummary)
 def risks_summary(db: Annotated[Session, Depends(get_db)]) -> RiskSummary:
-    """Return a count of risks per severity level."""
+    """Return a count of active (non-acknowledged) risks per severity level."""
     from app.models.risk import Risk
 
-    all_risks = db.execute(select(Risk)).scalars().all()
+    all_risks = db.execute(
+        select(Risk).where(Risk.acknowledged_at.is_(None))
+    ).scalars().all()
     counts: dict[str, int] = {"critical": 0, "high": 0, "medium": 0, "low": 0}
     for r in all_risks:
         if r.severity in counts:
@@ -261,6 +271,51 @@ def get_risk(risk_id: int, db: Annotated[Session, Depends(get_db)]) -> RiskOut:
     risk = db.execute(stmt).scalar_one_or_none()
     if risk is None:
         raise HTTPException(status_code=404, detail="Risk not found")
+    return _risk_to_out(risk)
+
+
+class _AcknowledgeBody(BaseModel):
+    note: str | None = None
+
+
+@router.patch("/risks/{risk_id}/acknowledge", response_model=RiskOut)
+def acknowledge_risk(
+    risk_id: int,
+    body: _AcknowledgeBody,
+    db: Annotated[Session, Depends(get_db)],
+) -> RiskOut:
+    """Mark a risk as acknowledged (accepted). Survives future re-scans."""
+    from datetime import UTC, datetime
+
+    from app.models.risk import Risk
+
+    stmt = select(Risk).options(selectinload(Risk.device)).where(Risk.id == risk_id)
+    risk = db.execute(stmt).scalar_one_or_none()
+    if risk is None:
+        raise HTTPException(status_code=404, detail="Risk not found")
+    risk.acknowledged_at = datetime.now(tz=UTC)
+    risk.acknowledged_note = body.note
+    db.commit()
+    db.refresh(risk)
+    return _risk_to_out(risk)
+
+
+@router.patch("/risks/{risk_id}/unacknowledge", response_model=RiskOut)
+def unacknowledge_risk(
+    risk_id: int,
+    db: Annotated[Session, Depends(get_db)],
+) -> RiskOut:
+    """Remove the acknowledgement from a risk, returning it to the active list."""
+    from app.models.risk import Risk
+
+    stmt = select(Risk).options(selectinload(Risk.device)).where(Risk.id == risk_id)
+    risk = db.execute(stmt).scalar_one_or_none()
+    if risk is None:
+        raise HTTPException(status_code=404, detail="Risk not found")
+    risk.acknowledged_at = None
+    risk.acknowledged_note = None
+    db.commit()
+    db.refresh(risk)
     return _risk_to_out(risk)
 
 
@@ -289,6 +344,8 @@ def _risk_to_out(r) -> RiskOut:  # noqa: ANN001 — SQLAlchemy instance
         title=r.title,
         description=r.description,
         detected_at=r.detected_at.isoformat() if r.detected_at else None,
+        acknowledged_at=r.acknowledged_at.isoformat() if r.acknowledged_at else None,
+        acknowledged_note=r.acknowledged_note,
     )
 
 
