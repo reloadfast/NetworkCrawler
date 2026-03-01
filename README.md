@@ -149,6 +149,12 @@ NetworkCrawler/
 
 ---
 
+## Operations
+
+Backup, restore, upgrade, and troubleshooting procedures are documented in [OPERATIONS.md](OPERATIONS.md).
+
+---
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
