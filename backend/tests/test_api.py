@@ -703,6 +703,76 @@ def test_post_checklist_ignores_invalid_values(client):
     assert upnp["answer"] == "unknown"
 
 
+# ── /api/settings — network_profile ──────────────────────────────────────────
+
+
+def test_get_settings_includes_network_profile(client):
+    """GET /api/settings returns network_profile field (defaults to standard_home)."""
+    resp = client.get("/api/settings")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "network_profile" in data
+    assert data["network_profile"] == "standard_home"
+
+
+def test_patch_settings_updates_network_profile(client):
+    """PATCH /api/settings with network_profile persists the value."""
+    resp = client.patch("/api/settings", json={"network_profile": "home_lab"})
+    assert resp.status_code == 200
+    assert resp.json()["network_profile"] == "home_lab"
+
+    # reset
+    client.patch("/api/settings", json={"network_profile": "standard_home"})
+
+
+def test_patch_settings_ignores_invalid_network_profile(client):
+    """PATCH /api/settings silently ignores unknown profile values."""
+    resp = client.patch("/api/settings", json={"network_profile": "not_a_profile"})
+    assert resp.status_code == 200
+    # profile should remain unchanged (standard_home default)
+    assert resp.json()["network_profile"] == "standard_home"
+
+
+def test_risk_display_severity_present(client, seeded_db):
+    """GET /api/risks returns display_severity field on every risk."""
+    resp = client.get("/api/risks")
+    assert resp.status_code == 200
+    for risk in resp.json():
+        assert "display_severity" in risk
+
+
+def test_risk_display_severity_overridden_by_home_lab(client, db_engine, seeded_db):
+    """With home_lab profile, open_ssh risk has display_severity=low."""
+
+    from app.models.risk import Risk
+
+    S = sessionmaker(bind=db_engine)  # noqa: N806 -- uppercase matches SQLAlchemy Session convention
+    db = S()
+    device_id = seeded_db["device_id"]
+    risk = Risk(
+        device_id=device_id,
+        severity="high",
+        check_id="open_ssh",
+        title="SSH open",
+        description="SSH port is open",
+    )
+    db.add(risk)
+    db.commit()
+
+    client.patch("/api/settings", json={"network_profile": "home_lab"})
+    resp = client.get("/api/risks")
+    client.patch("/api/settings", json={"network_profile": "standard_home"})
+
+    db.delete(risk)
+    db.commit()
+    db.close()
+
+    ssh_risks = [r for r in resp.json() if r["check_id"] == "open_ssh"]
+    assert len(ssh_risks) == 1
+    assert ssh_risks[0]["severity"] == "high"
+    assert ssh_risks[0]["display_severity"] == "low"
+
+
 # ── /api/insights/segmentation ────────────────────────────────────────────────
 
 

@@ -145,7 +145,9 @@ function RiskModal({
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={risk.severity}>{risk.severity}</Badge>
+            <Badge variant={risk.display_severity ?? risk.severity}>
+              {risk.display_severity ?? risk.severity}
+            </Badge>
             {isAcknowledged && (
               <span className="rounded-full border border-[var(--color-border)] px-2 py-0.5 text-xs text-[var(--color-text-secondary)]">
                 accepted
@@ -434,7 +436,9 @@ export function RisksPage() {
                   onClick={() => setSelectedRisk(risk)}
                   aria-label={`View details for ${risk.title}`}
                 >
-                  <Badge variant={risk.severity}>{risk.severity}</Badge>
+                  <Badge variant={risk.display_severity ?? risk.severity}>
+                    {risk.display_severity ?? risk.severity}
+                  </Badge>
                   <span className="flex-1 text-sm font-medium">
                     {risk.title}
                   </span>

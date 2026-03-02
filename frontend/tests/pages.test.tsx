@@ -68,10 +68,15 @@ const risk1: Risk = {
   id: 1,
   device_id: 1,
   severity: "critical",
+  display_severity: "critical",
   check_id: "default_credentials",
   title: "Default credentials",
   description: "Device uses default login credentials.",
   detected_at: "2024-06-01T12:00:00",
+  ip_address: "10.0.0.1",
+  hostname: "gw",
+  acknowledged_at: null,
+  acknowledged_note: null,
 };
 
 const summary: RiskSummary = {
@@ -99,7 +104,7 @@ function buildFetch(overrides: Record<string, unknown> = {}) {
         posture_label: "At Risk",
         yes_count: 0,
       },
-      "/api/settings": { webhook_url: null },
+      "/api/settings": { webhook_url: null, network_profile: "standard_home" },
       "/api/insights/segmentation": {
         flat_network: false,
         iot_count: 0,

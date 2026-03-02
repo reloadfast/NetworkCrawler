@@ -16,7 +16,11 @@ import {
 import { useDevices, useScans, useTriggerScan, useRiskSummary } from "../hooks";
 import { useScanStatus } from "../hooks/useScanStatus";
 import { useToast } from "../hooks/useToast";
-import type { PostureBadge, SegmentationInsight } from "../types/api";
+import type {
+  NetworkProfile,
+  PostureBadge,
+  SegmentationInsight,
+} from "../types/api";
 
 // ── Accent stripe colours per stat card ───────────────────────────────────────
 const STRIPE: Record<string, string> = {
@@ -159,6 +163,27 @@ function usePostureBadge() {
   return { posture, yesCount, total };
 }
 
+const PROFILE_LABELS: Record<NetworkProfile, string> = {
+  standard_home: "Standard Home",
+  home_lab: "Home Lab",
+  privacy_focused: "Privacy Focused",
+};
+
+function useActiveProfile() {
+  const [profile, setProfile] = useState<NetworkProfile | null>(null);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d: { network_profile?: NetworkProfile }) => {
+        if (d?.network_profile) setProfile(d.network_profile);
+      })
+      .catch(() => {});
+  }, []);
+
+  return profile;
+}
+
 function useSegmentation() {
   const [data, setData] = useState<SegmentationInsight | null>(null);
 
@@ -290,6 +315,7 @@ export function DashboardPage() {
   const { toasts, addToast, dismissToast } = useToast();
   const [scanStartedId, setScanStartedId] = useState<number | null>(null);
   const { posture, yesCount, total } = usePostureBadge();
+  const activeProfile = useActiveProfile();
   const segmentation = useSegmentation();
   const [segmentationDismissed, setSegmentationDismissed] = useState(false);
 
@@ -340,7 +366,15 @@ export function DashboardPage() {
         />
       )}
 
-      <PageHeader title="Dashboard" action={triggerButton} />
+      <PageHeader
+        title="Dashboard"
+        subtitle={
+          activeProfile
+            ? `Profile: ${PROFILE_LABELS[activeProfile]}`
+            : undefined
+        }
+        action={triggerButton}
+      />
 
       {noScansYet && (
         <Card className="mb-6 flex flex-col items-center gap-4 py-10 text-center">

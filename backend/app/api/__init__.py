@@ -241,6 +241,7 @@ class RiskOut(BaseModel):
     ip_address: str
     hostname: str | None
     severity: str
+    display_severity: str  # may differ from severity based on active network profile
     check_id: str
     title: str
     description: str
@@ -292,7 +293,8 @@ def list_risks(
     risks_sorted = sorted(
         risks, key=lambda r: (severity_order.get(r.severity, 99), r.detected_at or "")
     )
-    return [_risk_to_out(r) for r in risks_sorted]
+    profile = _get_active_profile(db)
+    return [_risk_to_out(r, profile) for r in risks_sorted]
 
 
 @router.get("/risks/summary", response_model=RiskSummary)
@@ -323,7 +325,7 @@ def get_risk(risk_id: int, db: Annotated[Session, Depends(get_db)]) -> RiskOut:
     risk = db.execute(stmt).scalar_one_or_none()
     if risk is None:
         raise HTTPException(status_code=404, detail="Risk not found")
-    return _risk_to_out(risk)
+    return _risk_to_out(risk, _get_active_profile(db))
 
 
 class _AcknowledgeBody(BaseModel):
@@ -349,7 +351,7 @@ def acknowledge_risk(
     risk.acknowledged_note = body.note
     db.commit()
     db.refresh(risk)
-    return _risk_to_out(risk)
+    return _risk_to_out(risk, _get_active_profile(db))
 
 
 @router.patch("/risks/{risk_id}/unacknowledge", response_model=RiskOut)
@@ -368,7 +370,7 @@ def unacknowledge_risk(
     risk.acknowledged_note = None
     db.commit()
     db.refresh(risk)
-    return _risk_to_out(risk)
+    return _risk_to_out(risk, _get_active_profile(db))
 
 
 @router.get("/devices/{device_id}/risks", response_model=list[RiskOut])
@@ -382,16 +384,30 @@ def device_risks(device_id: int, db: Annotated[Session, Depends(get_db)]) -> lis
         raise HTTPException(status_code=404, detail="Device not found")
     stmt = select(Risk).options(selectinload(Risk.device)).where(Risk.device_id == device_id)
     risks = db.execute(stmt).scalars().all()
-    return [_risk_to_out(r) for r in risks]
+    profile = _get_active_profile(db)
+    return [_risk_to_out(r, profile) for r in risks]
 
 
-def _risk_to_out(r) -> RiskOut:  # noqa: ANN001 — SQLAlchemy instance
+def _get_active_profile(db: Session) -> str:
+    from app.analysis.profiles import DEFAULT_PROFILE, VALID_PROFILES
+    from app.models.settings import AppSetting
+
+    row = db.get(AppSetting, "network_profile")
+    if row and row.value in VALID_PROFILES:
+        return row.value
+    return DEFAULT_PROFILE
+
+
+def _risk_to_out(r, profile: str = "standard_home") -> RiskOut:  # noqa: ANN001 — SQLAlchemy instance
+    from app.analysis.profiles import display_severity_for_check
+
     return RiskOut(
         id=r.id,
         device_id=r.device_id,
         ip_address=r.device.ip_address,
         hostname=r.device.hostname,
         severity=r.severity,
+        display_severity=display_severity_for_check(r.check_id, r.severity, profile),
         check_id=r.check_id,
         title=r.title,
         description=r.description,
@@ -510,10 +526,12 @@ def _rec_to_out(r) -> RecommendationOut:  # noqa: ANN001 — SQLAlchemy instance
 
 class SettingsOut(BaseModel):
     webhook_url: str | None
+    network_profile: str
 
 
 class _SettingsUpdate(BaseModel):
     webhook_url: str | None = None
+    network_profile: str | None = None
 
 
 @router.get("/settings", response_model=SettingsOut)
@@ -521,7 +539,10 @@ def get_settings(db: Annotated[Session, Depends(get_db)]) -> SettingsOut:
     """Return current application settings."""
     from app.notifications import get_webhook_url
 
-    return SettingsOut(webhook_url=get_webhook_url(db))
+    return SettingsOut(
+        webhook_url=get_webhook_url(db),
+        network_profile=_get_active_profile(db),
+    )
 
 
 @router.patch("/settings", response_model=SettingsOut)
@@ -530,11 +551,23 @@ def update_settings(
     db: Annotated[Session, Depends(get_db)],
 ) -> SettingsOut:
     """Persist application settings."""
+    from app.analysis.profiles import VALID_PROFILES
+    from app.models.settings import AppSetting
     from app.notifications import get_webhook_url, set_webhook_url
 
     if body.webhook_url is not None:
         set_webhook_url(db, body.webhook_url.strip() or None)
-    return SettingsOut(webhook_url=get_webhook_url(db))
+    if body.network_profile is not None and body.network_profile in VALID_PROFILES:
+        row = db.get(AppSetting, "network_profile")
+        if row is None:
+            db.add(AppSetting(key="network_profile", value=body.network_profile))
+        else:
+            row.value = body.network_profile
+        db.commit()
+    return SettingsOut(
+        webhook_url=get_webhook_url(db),
+        network_profile=_get_active_profile(db),
+    )
 
 
 class _TestWebhookResponse(BaseModel):
