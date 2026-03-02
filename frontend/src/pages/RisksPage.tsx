@@ -203,7 +203,7 @@ function RiskModal({
                 className="text-[var(--color-accent-positive)] hover:underline"
                 onClick={onClose}
               >
-                {risk.hostname || risk.ip_address}
+                {risk.label ?? risk.hostname ?? risk.ip_address}
               </Link>
             </dd>
           </div>
@@ -381,8 +381,8 @@ export function RisksPage() {
           <option value="">All devices</option>
           {devices.map((d) => (
             <option key={d.id} value={d.id}>
-              {d.ip_address}
-              {d.hostname ? ` (${d.hostname})` : ""}
+              {d.label ?? d.ip_address}
+              {!d.label && d.hostname ? ` (${d.hostname})` : ""}
             </option>
           ))}
         </select>
@@ -428,7 +428,8 @@ export function RisksPage() {
         <Card padding="none">
           <div className="divide-y divide-[var(--color-border)]">
             {risks.map((risk) => {
-              const deviceLabel = risk.hostname || risk.ip_address;
+              const deviceLabel =
+                risk.label ?? risk.hostname ?? risk.ip_address;
               return (
                 <button
                   key={risk.id}

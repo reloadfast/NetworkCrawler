@@ -63,6 +63,7 @@ export interface Risk {
   device_id: number;
   ip_address: string;
   hostname: string | null;
+  label: string | null;
   severity: Severity;
   display_severity: Severity;
   check_id: string;

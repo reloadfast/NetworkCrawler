@@ -323,6 +323,7 @@ def _record_scan_events(
                         {
                             "ip": d.ip_address,
                             "hostname": d.hostname,
+                            "label": d.label,
                             "mac": d.mac_address,
                             "vendor": d.vendor,
                         }
