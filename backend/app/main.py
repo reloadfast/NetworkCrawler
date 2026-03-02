@@ -43,9 +43,41 @@ def _read_version() -> str:
 _VERSION = _read_version()
 
 
+def _mark_interrupted_scans() -> None:
+    """Mark any scan still in 'running' status as failed.
+
+    Scans left in 'running' after a container restart were killed mid-flight
+    and will never complete. Leaving them in that state causes the frontend to
+    poll /api/scans indefinitely. Errors are caught so a stale or pre-migration
+    database never prevents the server from starting.
+    """
+    from datetime import UTC, datetime
+
+    from app.db import SessionLocal
+    from app.models.scan import Scan
+
+    db = SessionLocal()
+    try:
+        stale = db.query(Scan).filter(Scan.status == "running").all()
+        if stale:
+            now = datetime.now(tz=UTC)
+            for scan in stale:
+                scan.status = "failed"
+                scan.finished_at = now
+                scan.error_message = "Scan interrupted by server restart"
+                scan.current_stage = None
+            db.commit()
+            logger.info("Marked %d interrupted scan(s) as failed on startup", len(stale))
+    except Exception:  # noqa: BLE001 — startup cleanup; never prevent the server from starting
+        logger.warning("Could not clean up interrupted scans on startup (schema mismatch?)")
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     init_db()
+    _mark_interrupted_scans()
 
     from apscheduler.schedulers.background import BackgroundScheduler
 

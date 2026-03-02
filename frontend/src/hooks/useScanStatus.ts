@@ -1,7 +1,8 @@
 /**
- * useScanStatus — polls GET /api/scans every `intervalMs` ms while a scan
- * is running (status === 'running').  Returns the latest scan and whether
- * a scan is currently in progress.
+ * useScanStatus — fetches GET /api/scans on mount, then fast-polls every
+ * `intervalMs` ms ONLY while a scan is running (status === 'running').
+ * When no scan is running it falls back to a slow refresh every 30 s so
+ * the UI stays eventually-consistent without hammering the API.
  */
 import { useEffect, useRef, useState } from "react";
 import type { Scan } from "../types/api";
@@ -13,11 +14,13 @@ export interface UseScanStatusResult {
 }
 
 const RUNNING_STATUS = new Set(["running", "pending", "in_progress"]);
+const IDLE_INTERVAL_MS = 30_000;
 
 export function useScanStatus(intervalMs = 3000): UseScanStatusResult {
   const [latestScan, setLatestScan] = useState<Scan | null>(null);
   const [loading, setLoading] = useState(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isRunningRef = useRef(false);
 
   const fetchScans = (silent = false) => {
     if (!silent) setLoading(true);
@@ -29,6 +32,17 @@ export function useScanStatus(intervalMs = 3000): UseScanStatusResult {
         const latest = data[0] ?? null;
         setLatestScan(latest);
         setLoading(false);
+
+        const nowRunning = latest !== null && RUNNING_STATUS.has(latest.status);
+        // Reschedule interval only when running-state changes
+        if (nowRunning !== isRunningRef.current) {
+          isRunningRef.current = nowRunning;
+          if (intervalRef.current !== null) clearInterval(intervalRef.current);
+          intervalRef.current = setInterval(
+            () => fetchScans(true),
+            nowRunning ? intervalMs : IDLE_INTERVAL_MS,
+          );
+        }
       })
       .catch(() => {
         setLoading(false);
@@ -37,16 +51,13 @@ export function useScanStatus(intervalMs = 3000): UseScanStatusResult {
 
   useEffect(() => {
     fetchScans();
-
-    intervalRef.current = setInterval(() => {
-      // Always poll; only matters visually when running
-      fetchScans(true);
-    }, intervalMs);
+    // Start with idle interval; fetchScans will upgrade to fast-poll if running
+    intervalRef.current = setInterval(() => fetchScans(true), IDLE_INTERVAL_MS);
 
     return () => {
       if (intervalRef.current !== null) clearInterval(intervalRef.current);
     };
-  }, [intervalMs]);
+  }, [intervalMs]); // eslint-disable-line react-hooks/exhaustive-deps -- fetchScans is stable
 
   const isRunning =
     latestScan !== null && RUNNING_STATUS.has(latestScan.status);
