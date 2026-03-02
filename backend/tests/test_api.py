@@ -615,6 +615,33 @@ def test_patch_device_trusted_404_for_unknown(client):
     assert resp.status_code == 404
 
 
+def test_patch_device_type_sets_value(client, seeded_db):
+    """PATCH /api/devices/{id}/device_type should update device_type."""
+    device_id = seeded_db["device_id"]
+    resp = client.patch(
+        f"/api/devices/{device_id}/device_type",
+        json={"device_type": "server"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["device_type"] == "server"
+
+
+def test_patch_device_type_rejects_invalid(client, seeded_db):
+    """PATCH /api/devices/{id}/device_type rejects unknown type values."""
+    device_id = seeded_db["device_id"]
+    resp = client.patch(
+        f"/api/devices/{device_id}/device_type",
+        json={"device_type": "toaster"},
+    )
+    assert resp.status_code == 422
+
+
+def test_patch_device_type_404_for_unknown(client):
+    """PATCH /api/devices/{id}/device_type returns 404 for non-existent device."""
+    resp = client.patch("/api/devices/999999/device_type", json={"device_type": "iot"})
+    assert resp.status_code == 404
+
+
 def test_scan_response_includes_current_stage(client, seeded_db):
     """GET /api/scans response must include the current_stage field (may be null)."""
     resp = client.get("/api/scans")

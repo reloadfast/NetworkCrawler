@@ -96,6 +96,7 @@ export function DeviceDetailPage() {
   const [editingLabel, setEditingLabel] = useState(false);
   const [labelDraft, setLabelDraft] = useState("");
   const [savingLabel, setSavingLabel] = useState(false);
+  const [savingType, setSavingType] = useState(false);
   const labelInputRef = useRef<HTMLInputElement>(null);
 
   const displayLabel = label !== undefined ? label : device?.label;
@@ -158,6 +159,23 @@ export function DeviceDetailPage() {
         setToastMsg("Failed to update trusted status. Please try again.");
       })
       .finally(() => setTogglingTrust(false));
+  };
+
+  const handleSetDeviceType = (value: string) => {
+    setSavingType(true);
+    fetch(`/api/devices/${deviceId}/device_type`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device_type: value }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return refetch();
+      })
+      .catch(() => {
+        setToastMsg("Failed to update device type. Please try again.");
+      })
+      .finally(() => setSavingType(false));
   };
 
   return (
@@ -306,7 +324,29 @@ export function DeviceDetailPage() {
               Device Type
             </dt>
             <dd className="mt-1">
-              <DeviceTypeBadge type={device.device_type} size="md" />
+              {device.trusted &&
+              (!device.device_type || device.device_type === "unknown") ? (
+                <select
+                  defaultValue=""
+                  onChange={(e) => {
+                    if (e.target.value) handleSetDeviceType(e.target.value);
+                  }}
+                  disabled={savingType}
+                  aria-label="Set device type"
+                  className="rounded border border-[var(--color-accent-primary)] bg-[var(--color-background)] px-2 py-1 text-sm text-[var(--color-text-primary)] focus:outline-none"
+                >
+                  <option value="" disabled>
+                    Set type…
+                  </option>
+                  <option value="iot">📡 IoT</option>
+                  <option value="server">🖥 Server</option>
+                  <option value="router">🔀 Router</option>
+                  <option value="workstation">💻 Workstation</option>
+                  <option value="unknown">❓ Unknown</option>
+                </select>
+              ) : (
+                <DeviceTypeBadge type={device.device_type} size="md" />
+              )}
             </dd>
           </div>
           <div className="flex flex-col">

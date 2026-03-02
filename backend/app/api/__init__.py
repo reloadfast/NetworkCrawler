@@ -132,6 +132,41 @@ class _LabelUpdate(BaseModel):
     label: str | None
 
 
+_VALID_DEVICE_TYPES = {"iot", "server", "router", "workstation", "unknown"}
+
+
+class _DeviceTypeUpdate(BaseModel):
+    device_type: str
+
+
+@router.patch("/devices/{device_id}/device_type", response_model=DeviceOut)
+def set_device_type(
+    device_id: int,
+    body: _DeviceTypeUpdate,
+    db: Annotated[Session, Depends(get_db)],
+) -> DeviceOut:
+    """Set the user-defined device type override."""
+    from app.models.device import Device
+
+    if body.device_type not in _VALID_DEVICE_TYPES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid device_type. Must be one of: {sorted(_VALID_DEVICE_TYPES)}",
+        )
+    stmt = (
+        select(Device)
+        .options(selectinload(Device.ports), selectinload(Device.risks))
+        .where(Device.id == device_id)
+    )
+    device = db.execute(stmt).scalar_one_or_none()
+    if device is None:
+        raise HTTPException(status_code=404, detail="Device not found")
+    device.device_type = body.device_type
+    db.commit()
+    db.refresh(device)
+    return _device_to_out(device)
+
+
 @router.patch("/devices/{device_id}/label", response_model=DeviceOut)
 def set_device_label(
     device_id: int,
