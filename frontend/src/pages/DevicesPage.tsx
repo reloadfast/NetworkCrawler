@@ -98,6 +98,61 @@ function LabelCell({
   );
 }
 
+const DEVICE_TYPE_OPTIONS: { value: DeviceType; label: string }[] = [
+  { value: "iot", label: "📡 IoT" },
+  { value: "server", label: "🖥 Server" },
+  { value: "router", label: "🔀 Router" },
+  { value: "workstation", label: "💻 Workstation" },
+  { value: "unknown", label: "❓ Unknown" },
+];
+
+/** Inline device-type selector — shown only for trusted devices with no known type. */
+function DeviceTypeCell({
+  device,
+  onSaved,
+}: {
+  device: Device;
+  onSaved: (type: DeviceType) => void;
+}) {
+  const needsType =
+    device.trusted && (!device.device_type || device.device_type === "unknown");
+
+  if (!needsType) {
+    return <DeviceTypeBadge type={device.device_type} />;
+  }
+
+  const save = (value: string) => {
+    fetch(`/api/devices/${device.id}/device_type`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device_type: value }),
+    })
+      .then((r) => r.json())
+      .then((d: Device) => onSaved(d.device_type as DeviceType))
+      .catch(() => {});
+  };
+
+  return (
+    <select
+      defaultValue=""
+      onChange={(e) => {
+        if (e.target.value) save(e.target.value);
+      }}
+      aria-label={`Set device type for ${device.ip_address}`}
+      className="rounded border border-[var(--color-accent-primary)] bg-[var(--color-background)] px-1.5 py-0.5 text-xs text-[var(--color-text-primary)] focus:outline-none"
+    >
+      <option value="" disabled>
+        Set type…
+      </option>
+      {DEVICE_TYPE_OPTIONS.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 type SortKey =
   | "ip_address"
   | "hostname"
@@ -158,12 +213,15 @@ export function DevicesPage() {
   const [localLabels, setLocalLabels] = useState<Record<number, string | null>>(
     {},
   );
+  const [localTypes, setLocalTypes] = useState<Record<number, DeviceType>>({});
   const devices = useMemo(
     () =>
-      rawDevices.map((d) =>
-        d.id in localLabels ? { ...d, label: localLabels[d.id] } : d,
-      ),
-    [rawDevices, localLabels],
+      rawDevices.map((d) => ({
+        ...d,
+        ...(d.id in localLabels ? { label: localLabels[d.id] } : {}),
+        ...(d.id in localTypes ? { device_type: localTypes[d.id] } : {}),
+      })),
+    [rawDevices, localLabels, localTypes],
   );
   const { risks } = useRisks();
   const [filter, setFilter] = useState("");
@@ -385,7 +443,15 @@ export function DevicesPage() {
                         : "—"}
                     </td>
                     <td className="px-4 py-3">
-                      <DeviceTypeBadge type={device.device_type} />
+                      <DeviceTypeCell
+                        device={device}
+                        onSaved={(type) =>
+                          setLocalTypes((prev) => ({
+                            ...prev,
+                            [device.id]: type,
+                          }))
+                        }
+                      />
                     </td>
                   </tr>
                 ))}
