@@ -960,3 +960,24 @@ def get_topology(db: Annotated[Session, Depends(get_db)]) -> list[TopologyNode]:
         )
         for d in devices
     ]
+
+
+# ── /api/network/wan ──────────────────────────────────────────────────────────
+
+
+class WanInfoOut(BaseModel):
+    wan_ip: str | None
+    detected_at: str | None  # ISO-8601 timestamp or None
+
+
+@router.get("/network/wan", response_model=WanInfoOut)
+def get_wan_info(db: Annotated[Session, Depends(get_db)]) -> WanInfoOut:
+    """Return the last detected public WAN IP address and when it was recorded."""
+    from app.models.settings import AppSetting
+
+    wan_ip_row = db.get(AppSetting, "wan_ip")
+    detected_at_row = db.get(AppSetting, "wan_ip_detected_at")
+    return WanInfoOut(
+        wan_ip=wan_ip_row.value if wan_ip_row else None,
+        detected_at=detected_at_row.value if detected_at_row else None,
+    )

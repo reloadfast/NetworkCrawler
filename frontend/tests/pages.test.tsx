@@ -113,6 +113,7 @@ function buildFetch(overrides: Record<string, unknown> = {}) {
         recommendations: [],
       },
       "/api/topology": [],
+      "/api/network/wan": { wan_ip: null, detected_at: null },
       ...overrides,
     };
     // match base path for parameterised URLs
@@ -197,6 +198,33 @@ describe("DashboardPage", () => {
     await waitFor(() =>
       expect(screen.getByText(/Scan #99 started/i)).toBeInTheDocument(),
     );
+  });
+  it("shows WAN IP when available", async () => {
+    vi.stubGlobal(
+      "fetch",
+      buildFetch({ "/api/network/wan": { wan_ip: "1.2.3.4", detected_at: "2026-03-02T12:00:00Z" } }),
+    );
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
+    await waitFor(() =>
+      expect(screen.getByText("1.2.3.4")).toBeInTheDocument(),
+    );
+  });
+
+  it("hides WAN IP row when wan_ip is null", async () => {
+    vi.stubGlobal("fetch", buildFetch());
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
+    await waitFor(() =>
+      expect(screen.getByText("Dashboard")).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/WAN IP/i)).not.toBeInTheDocument();
   });
 });
 

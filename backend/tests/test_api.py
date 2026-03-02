@@ -932,3 +932,36 @@ def test_topology_gateway_detection_by_type(client, db_engine):
     db.delete(router)
     db.commit()
     db.close()
+
+
+# ── /api/network/wan ──────────────────────────────────────────────────────────
+
+
+def test_wan_no_data(client):
+    """GET /api/network/wan returns nulls when no WAN IP has been recorded."""
+    resp = client.get("/api/network/wan")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["wan_ip"] is None
+    assert body["detected_at"] is None
+
+
+def test_wan_returns_stored_ip(client, db_engine):
+    """GET /api/network/wan returns the IP and timestamp stored in AppSettings."""
+    from app.models.settings import AppSetting
+
+    S = sessionmaker(bind=db_engine)  # noqa: N806 -- uppercase matches SQLAlchemy Session convention
+    db = S()
+    db.add(AppSetting(key="wan_ip", value="203.0.113.42"))
+    db.add(AppSetting(key="wan_ip_detected_at", value="2026-03-02T12:00:00+00:00"))
+    db.commit()
+
+    resp = client.get("/api/network/wan")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["wan_ip"] == "203.0.113.42"
+    assert body["detected_at"] == "2026-03-02T12:00:00+00:00"
+
+    db.query(AppSetting).filter(AppSetting.key.in_(["wan_ip", "wan_ip_detected_at"])).delete()
+    db.commit()
+    db.close()
