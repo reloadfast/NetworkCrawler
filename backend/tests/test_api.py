@@ -771,3 +771,102 @@ def test_risk_display_severity_overridden_by_home_lab(client, db_engine, seeded_
     assert len(ssh_risks) == 1
     assert ssh_risks[0]["severity"] == "high"
     assert ssh_risks[0]["display_severity"] == "low"
+
+
+# ── /api/insights/segmentation ────────────────────────────────────────────────
+
+
+def test_segmentation_no_devices_returns_not_flat(client):
+    """GET /api/insights/segmentation returns flat_network=false when no devices."""
+    resp = client.get("/api/insights/segmentation")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["flat_network"] is False
+    assert data["iot_count"] == 0
+    assert data["server_count"] == 0
+    assert data["mixed_risk_pairs"] == []
+    assert data["recommendations"] == []
+
+
+def test_segmentation_only_iot_not_flat(client, db_engine):
+    """GET /api/insights/segmentation is not flat when only IoT devices, no servers."""
+    from app.models.device import Device
+    from sqlalchemy.orm import (
+        sessionmaker as sm,  # noqa: N806 — uppercase Session is SQLAlchemy convention
+    )
+
+    Session = sm(bind=db_engine)  # noqa: N806 — uppercase Session is SQLAlchemy convention
+    db = Session()
+    d = Device(ip_address="192.168.1.50", device_type="iot")
+    db.add(d)
+    db.commit()
+
+    resp = client.get("/api/insights/segmentation")
+    data = resp.json()
+    assert data["flat_network"] is False
+    assert data["iot_count"] == 1
+
+    db.delete(d)
+    db.commit()
+    db.close()
+
+
+def test_segmentation_mixed_iot_server_is_flat(client, db_engine):
+    """GET /api/insights/segmentation detects flat network with IoT + server."""
+    from app.models.device import Device
+    from sqlalchemy.orm import (
+        sessionmaker as sm,  # noqa: N806 — uppercase Session is SQLAlchemy convention
+    )
+
+    Session = sm(bind=db_engine)  # noqa: N806 — uppercase Session is SQLAlchemy convention
+    db = Session()
+    iot = Device(ip_address="192.168.1.60", device_type="iot")
+    srv = Device(ip_address="192.168.1.100", device_type="server")
+    db.add_all([iot, srv])
+    db.commit()
+
+    resp = client.get("/api/insights/segmentation")
+    data = resp.json()
+    assert data["flat_network"] is True
+    assert data["iot_count"] == 1
+    assert data["server_count"] == 1
+    assert len(data["recommendations"]) == 3
+
+    db.delete(iot)
+    db.delete(srv)
+    db.commit()
+    db.close()
+
+
+def test_segmentation_mixed_risk_pair_detected(client, db_engine):
+    """GET /api/insights/segmentation detects mixed_risk_pairs when IoT has open ports."""
+    from app.models.device import Device, Port
+    from sqlalchemy.orm import (
+        sessionmaker as sm,  # noqa: N806 — uppercase Session is SQLAlchemy convention
+    )
+
+    Session = sm(bind=db_engine)  # noqa: N806 — uppercase Session is SQLAlchemy convention
+    db = Session()
+    iot = Device(ip_address="10.1.1.10", device_type="iot")
+    db.add(iot)
+    db.flush()
+    p = Port(device_id=iot.id, port_number=8080, protocol="tcp")
+    db.add(p)
+    srv = Device(ip_address="10.1.1.20", device_type="server")
+    db.add(srv)
+    db.commit()
+
+    resp = client.get("/api/insights/segmentation")
+    data = resp.json()
+    assert data["flat_network"] is True
+    assert len(data["mixed_risk_pairs"]) == 1
+    pair = data["mixed_risk_pairs"][0]
+    assert pair["iot_ip"] == "10.1.1.10"
+    assert pair["server_ip"] == "10.1.1.20"
+    assert pair["shared_subnet"] == "10.1.1.0/24"
+
+    db.delete(p)
+    db.delete(iot)
+    db.delete(srv)
+    db.commit()
+    db.close()

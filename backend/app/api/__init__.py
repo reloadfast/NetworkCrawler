@@ -1,4 +1,4 @@
-"""REST API — /api/devices, /api/scans, /api/risks, and /api/recommendations endpoints."""
+"""REST API — devices, scans, risks, recommendations, settings, changes, and insights endpoints."""
 
 from __future__ import annotations
 
@@ -854,4 +854,47 @@ def _event_to_out(e) -> ScanEventOut:  # noqa: ANN001 — SQLAlchemy instance
         detail=e.detail,
         occurred_at=e.occurred_at.isoformat() if e.occurred_at else None,
         reviewed=bool(e.reviewed),
+    )
+
+
+# ── /api/insights/segmentation ────────────────────────────────────────────────
+
+
+class MixedRiskPairOut(BaseModel):
+    iot_device_id: int
+    iot_ip: str
+    server_device_id: int
+    server_ip: str
+    shared_subnet: str
+
+
+class SegmentationOut(BaseModel):
+    flat_network: bool
+    iot_count: int
+    server_count: int
+    mixed_risk_pairs: list[MixedRiskPairOut]
+    recommendations: list[str]
+
+
+@router.get("/insights/segmentation", response_model=SegmentationOut)
+def get_segmentation(db: Annotated[Session, Depends(get_db)]) -> SegmentationOut:
+    """Detect flat-network conditions and return VLAN segmentation advice."""
+    from app.analysis.segmentation import analyse_segmentation
+
+    result = analyse_segmentation(db)
+    return SegmentationOut(
+        flat_network=result.flat_network,
+        iot_count=result.iot_count,
+        server_count=result.server_count,
+        mixed_risk_pairs=[
+            MixedRiskPairOut(
+                iot_device_id=p.iot_device_id,
+                iot_ip=p.iot_ip,
+                server_device_id=p.server_device_id,
+                server_ip=p.server_ip,
+                shared_subnet=p.shared_subnet,
+            )
+            for p in result.mixed_risk_pairs
+        ],
+        recommendations=result.recommendations,
     )

@@ -2,7 +2,7 @@
  * DashboardPage — summary cards, last scan info, and quick-trigger button.
  * Route: /
  */
-import React, { useEffect, useState } from "react";
+import React, { memo, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Card,
@@ -16,7 +16,11 @@ import {
 import { useDevices, useScans, useTriggerScan, useRiskSummary } from "../hooks";
 import { useScanStatus } from "../hooks/useScanStatus";
 import { useToast } from "../hooks/useToast";
-import type { NetworkProfile, PostureBadge } from "../types/api";
+import type {
+  NetworkProfile,
+  PostureBadge,
+  SegmentationInsight,
+} from "../types/api";
 
 // ── Accent stripe colours per stat card ───────────────────────────────────────
 const STRIPE: Record<string, string> = {
@@ -180,7 +184,83 @@ function useActiveProfile() {
   return profile;
 }
 
-function StatCard({
+function useSegmentation() {
+  const [data, setData] = useState<SegmentationInsight | null>(null);
+
+  useEffect(() => {
+    fetch("/api/insights/segmentation")
+      .then((r) => r.json())
+      .then((d: SegmentationInsight) => {
+        if (d && typeof d.flat_network === "boolean") {
+          setData(d);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  return data;
+}
+
+function SegmentationAdvisory({
+  data,
+  onDismiss,
+}: {
+  data: SegmentationInsight;
+  onDismiss: () => void;
+}) {
+  return (
+    <Card className="mb-6 border-l-4 border-l-[var(--color-accent-warning)]">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <span className="text-2xl" aria-hidden="true">
+            🏠
+          </span>
+          <div className="flex-1">
+            <p className="font-semibold text-[var(--color-text-primary)]">
+              Flat Network Detected
+            </p>
+            <p className="mt-0.5 text-sm text-[var(--color-text-secondary)]">
+              {data.iot_count} IoT device{data.iot_count !== 1 ? "s" : ""} and{" "}
+              {data.server_count} server{data.server_count !== 1 ? "s" : ""}{" "}
+              share the same network — consider VLAN segmentation.
+            </p>
+            {data.mixed_risk_pairs.length > 0 && (
+              <p className="mt-1 text-xs text-[var(--color-accent-warning)]">
+                ⚠ {data.mixed_risk_pairs.length} high-risk IoT/server pair
+                {data.mixed_risk_pairs.length !== 1 ? "s" : ""} detected
+              </p>
+            )}
+            <ul className="mt-3 space-y-1">
+              {data.recommendations.map((rec, i) => (
+                <li
+                  key={i}
+                  className="flex gap-2 text-sm text-[var(--color-text-secondary)]"
+                >
+                  <span
+                    className="mt-0.5 text-[var(--color-accent-positive)]"
+                    aria-hidden="true"
+                  >
+                    ✓
+                  </span>
+                  {rec}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        <button
+          onClick={onDismiss}
+          aria-label="Dismiss segmentation advisory"
+          className="flex-shrink-0 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+        >
+          ✕
+        </button>
+      </div>
+    </Card>
+  );
+}
+
+const StatCard = memo(function StatCard({
   label,
   value,
   sub,
@@ -224,7 +304,7 @@ function StatCard({
     </div>
   );
   return to ? <Link to={to}>{inner}</Link> : inner;
-}
+});
 
 export function DashboardPage() {
   const { devices, loading: devLoading } = useDevices();
@@ -236,6 +316,8 @@ export function DashboardPage() {
   const [scanStartedId, setScanStartedId] = useState<number | null>(null);
   const { posture, yesCount, total } = usePostureBadge();
   const activeProfile = useActiveProfile();
+  const segmentation = useSegmentation();
+  const [segmentationDismissed, setSegmentationDismissed] = useState(false);
 
   const lastScan = scans[0] ?? null;
   const loading = devLoading || scanLoading || summaryLoading;
@@ -407,6 +489,14 @@ export function DashboardPage() {
                 </span>
               </div>
             </Link>
+          )}
+
+          {/* Segmentation advisory */}
+          {segmentation?.flat_network && !segmentationDismissed && (
+            <SegmentationAdvisory
+              data={segmentation}
+              onDismiss={() => setSegmentationDismissed(true)}
+            />
           )}
 
           {/* Last scan */}

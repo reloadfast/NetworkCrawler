@@ -105,6 +105,13 @@ function buildFetch(overrides: Record<string, unknown> = {}) {
         yes_count: 0,
       },
       "/api/settings": { webhook_url: null, network_profile: "standard_home" },
+      "/api/insights/segmentation": {
+        flat_network: false,
+        iot_count: 0,
+        server_count: 0,
+        mixed_risk_pairs: [],
+        recommendations: [],
+      },
       ...overrides,
     };
     // match base path for parameterised URLs

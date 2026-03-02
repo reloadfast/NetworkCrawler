@@ -149,3 +149,19 @@ export interface ChecklistState {
   posture_label: string;
   yes_count: number;
 }
+
+export interface MixedRiskPair {
+  iot_device_id: number;
+  iot_ip: string;
+  server_device_id: number;
+  server_ip: string;
+  shared_subnet: string;
+}
+
+export interface SegmentationInsight {
+  flat_network: boolean;
+  iot_count: number;
+  server_count: number;
+  mixed_risk_pairs: MixedRiskPair[];
+  recommendations: string[];
+}
