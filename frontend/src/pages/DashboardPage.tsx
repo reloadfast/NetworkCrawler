@@ -235,7 +235,6 @@ function SegmentationAdvisory({
   );
 }
 
-
 const StatCard = memo(function StatCard({
   label,
   value,
