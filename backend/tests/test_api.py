@@ -972,12 +972,11 @@ def test_wan_returns_stored_ip(client, db_engine):
 
 def test_upsert_device_creates_new(db_engine):
     """upsert_device creates a new Device when MAC and IP are both unseen."""
-    from sqlalchemy.orm import sessionmaker
-
     from app.db import upsert_device
     from app.models.device import Device
+    from sqlalchemy.orm import sessionmaker
 
-    Session = sessionmaker(bind=db_engine)
+    Session = sessionmaker(bind=db_engine)  # noqa: N806 — sessionmaker convention
     db = Session()
     try:
         device = upsert_device(
@@ -997,12 +996,11 @@ def test_upsert_device_creates_new(db_engine):
 
 def test_upsert_device_mac_first_updates_ip(db_engine):
     """upsert_device uses MAC as primary key: if MAC seen at a new IP, updates IP."""
-    from sqlalchemy.orm import sessionmaker
-
     from app.db import upsert_device
     from app.models.device import Device
+    from sqlalchemy.orm import sessionmaker
 
-    Session = sessionmaker(bind=db_engine)
+    Session = sessionmaker(bind=db_engine)  # noqa: N806 — sessionmaker convention
     db = Session()
     try:
         # Create device at original IP
@@ -1036,12 +1034,11 @@ def test_upsert_device_mac_first_updates_ip(db_engine):
 
 def test_upsert_device_no_mac_falls_back_to_ip(db_engine):
     """upsert_device falls back to IP lookup when MAC is not provided."""
-    from sqlalchemy.orm import sessionmaker
-
     from app.db import upsert_device
     from app.models.device import Device
+    from sqlalchemy.orm import sessionmaker
 
-    Session = sessionmaker(bind=db_engine)
+    Session = sessionmaker(bind=db_engine)  # noqa: N806 — sessionmaker convention
     db = Session()
     try:
         d1 = upsert_device(db, ip_address="192.168.99.30", hostname="alpha")
