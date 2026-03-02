@@ -210,16 +210,19 @@ export function TopologyPage() {
     [topology, gateway],
   );
 
-  const [rfNodes, , onNodesChange] = useNodesState(initialNodes);
-  const [rfEdges, , onEdgesChange] = useEdgesState(initialEdges);
+  const [rfNodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [rfEdges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
-  // Sync when topology loads
-  const [synced, setSynced] = useState(false);
+  // Sync React Flow state when topology data arrives (useNodesState/useEdgesState
+  // only consume their argument as an initial value, so async fetch results must
+  // be pushed in explicitly via setNodes/setEdges).
   useEffect(() => {
-    if (topology.length > 0 && !synced) {
-      setSynced(true);
-    }
-  }, [topology, synced]);
+    setNodes(initialNodes);
+  }, [initialNodes, setNodes]);
+
+  useEffect(() => {
+    setEdges(initialEdges);
+  }, [initialEdges, setEdges]);
 
   if (loading) {
     return (
