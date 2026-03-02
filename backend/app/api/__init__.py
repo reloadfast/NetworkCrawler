@@ -671,9 +671,7 @@ def _get_checklist(db: Session) -> ChecklistOut:
 
     valid_answers = {"yes", "no", "unknown"}
     keys = [q["key"] for q in _CHECKLIST_QUESTIONS]
-    rows = (
-        db.execute(sa_select(AppSetting).where(AppSetting.key.in_(keys))).scalars().all()
-    )
+    rows = db.execute(sa_select(AppSetting).where(AppSetting.key.in_(keys))).scalars().all()
     stored = {r.key: r.value for r in rows}
 
     items: list[ChecklistItemOut] = []
