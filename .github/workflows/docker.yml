@@ -81,6 +81,11 @@ jobs:
             org.opencontainers.image.vendor=talesofthemoon
             org.opencontainers.image.licenses=MIT
 
+      # ── Short SHA for version label ───────────────────────────────────────────
+      - name: Set short SHA
+        id: sha
+        run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
       # ── Build and push per-arch digest ────────────────────────────────────────
       #   On PRs: build only (no push, no digest needed).
       #   On push/tag: push digest-only (no manifest tag) via outputs; the merge
@@ -97,7 +102,7 @@ jobs:
           # On PRs: type=docker (local load, no push). On push/tag: digest-only push.
           outputs: ${{ github.event_name != 'pull_request' && format('type=image,name={0},push-by-digest=true,name-canonical=true,push=true', env.IMAGE) || 'type=docker' }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: APP_VERSION=sha-${{ github.sha }}
+          build-args: APP_VERSION=${{ steps.sha.outputs.short }}
           # Per-arch GHA cache (keyed by platform so they don't collide)
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
@@ -136,6 +141,10 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Set short SHA
+        id: sha
+        run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
       # Build the image locally for scanning (amd64 only — same OS layers as arm64)
       - name: Build image for scanning
         uses: docker/build-push-action@v6
@@ -145,7 +154,7 @@ jobs:
           platforms: linux/amd64
           load: true
           tags: networkcrawler:scan
-          build-args: APP_VERSION=sha-${{ github.sha }}
+          build-args: APP_VERSION=${{ steps.sha.outputs.short }}
           cache-from: type=gha,scope=linux/amd64
 
       # Run Trivy — report CRITICAL/HIGH; results visible in Security tab without blocking merges
