@@ -746,7 +746,7 @@ def test_risk_display_severity_overridden_by_home_lab(client, db_engine, seeded_
 
     from app.models.risk import Risk
 
-    S = sessionmaker(bind=db_engine)  # noqa: N806
+    S = sessionmaker(bind=db_engine)  # noqa: N806 -- uppercase matches SQLAlchemy Session convention
     db = S()
     device_id = seeded_db["device_id"]
     risk = Risk(
