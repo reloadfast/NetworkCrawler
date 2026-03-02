@@ -97,6 +97,7 @@ jobs:
           # On PRs: type=docker (local load, no push). On push/tag: digest-only push.
           outputs: ${{ github.event_name != 'pull_request' && format('type=image,name={0},push-by-digest=true,name-canonical=true,push=true', env.IMAGE) || 'type=docker' }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: APP_VERSION=sha-${{ github.sha }}
           # Per-arch GHA cache (keyed by platform so they don't collide)
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
@@ -144,6 +145,7 @@ jobs:
           platforms: linux/amd64
           load: true
           tags: networkcrawler:scan
+          build-args: APP_VERSION=sha-${{ github.sha }}
           cache-from: type=gha,scope=linux/amd64
 
       # Run Trivy — report CRITICAL/HIGH; results visible in Security tab without blocking merges

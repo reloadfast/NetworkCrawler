@@ -26,8 +26,12 @@ logger = logging.getLogger(__name__)
 SCAN_INTERVAL_SECONDS = int(os.getenv("SCAN_INTERVAL_SECONDS", "3600"))
 
 
-# Read version from pyproject.toml at import time; fall back to "dev" on any error.
+# Read version: prefer APP_VERSION env var (set by Docker build arg to git short SHA),
+# fall back to pyproject.toml, then "dev".
 def _read_version() -> str:
+    env_ver = os.getenv("APP_VERSION", "").strip()
+    if env_ver and env_ver != "dev":
+        return env_ver
     try:
         pyproject = Path(__file__).parent.parent / "pyproject.toml"
         with pyproject.open("rb") as f:
@@ -67,7 +71,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 app = FastAPI(
     title="NetworkCrawler",
     description="LAN security posture scanner for home lab operators.",
-    version="0.1.0",
+    version=_VERSION,
     lifespan=lifespan,
 )
 

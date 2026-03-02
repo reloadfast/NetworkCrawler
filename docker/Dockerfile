@@ -64,6 +64,11 @@ ENV PYTHONPATH=/app/backend
 # both mount /app/data as a persistent volume).
 ENV DATABASE_URL=sqlite:////app/data/networkcrawler.db
 
+# Build-time version stamp — injected by CI as the git short SHA (e.g. sha-abc1234).
+# Falls back to "dev" when building locally without the arg.
+ARG APP_VERSION=dev
+ENV APP_VERSION=$APP_VERSION
+
 # Install Python dependencies before copying source (layer-cache friendly)
 COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
