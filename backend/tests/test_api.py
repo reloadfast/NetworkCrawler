@@ -992,3 +992,91 @@ def test_wan_returns_stored_ip(client, db_engine):
     db.query(AppSetting).filter(AppSetting.key.in_(["wan_ip", "wan_ip_detected_at"])).delete()
     db.commit()
     db.close()
+
+
+# ── upsert_device MAC-first identity ─────────────────────────────────────────
+
+
+def test_upsert_device_creates_new(db_engine):
+    """upsert_device creates a new Device when MAC and IP are both unseen."""
+    from app.db import upsert_device
+    from app.models.device import Device
+    from sqlalchemy.orm import sessionmaker
+
+    Session = sessionmaker(bind=db_engine)  # noqa: N806 — sessionmaker convention
+    db = Session()
+    try:
+        device = upsert_device(
+            db,
+            ip_address="192.168.99.10",
+            mac_address="aa:bb:cc:dd:ee:01",
+            hostname="newhost",
+        )
+        db.commit()
+        assert device.ip_address == "192.168.99.10"
+        assert device.hostname == "newhost"
+    finally:
+        db.query(Device).filter(Device.mac_address == "aa:bb:cc:dd:ee:01").delete()
+        db.commit()
+        db.close()
+
+
+def test_upsert_device_mac_first_updates_ip(db_engine):
+    """upsert_device uses MAC as primary key: if MAC seen at a new IP, updates IP."""
+    from app.db import upsert_device
+    from app.models.device import Device
+    from sqlalchemy.orm import sessionmaker
+
+    Session = sessionmaker(bind=db_engine)  # noqa: N806 — sessionmaker convention
+    db = Session()
+    try:
+        # Create device at original IP
+        d = upsert_device(
+            db,
+            ip_address="192.168.99.20",
+            mac_address="aa:bb:cc:dd:ee:02",
+        )
+        d.label = "my-server"
+        d.trusted = True
+        db.commit()
+        original_id = d.id
+
+        # Simulate DHCP lease change: same MAC, new IP
+        d2 = upsert_device(
+            db,
+            ip_address="192.168.99.21",
+            mac_address="aa:bb:cc:dd:ee:02",
+        )
+        db.commit()
+
+        assert d2.id == original_id, "Should be the same DB row"
+        assert d2.ip_address == "192.168.99.21", "IP should be updated"
+        assert d2.label == "my-server", "User label must be preserved"
+        assert d2.trusted is True, "Trusted flag must be preserved"
+    finally:
+        db.query(Device).filter(Device.mac_address == "aa:bb:cc:dd:ee:02").delete()
+        db.commit()
+        db.close()
+
+
+def test_upsert_device_no_mac_falls_back_to_ip(db_engine):
+    """upsert_device falls back to IP lookup when MAC is not provided."""
+    from app.db import upsert_device
+    from app.models.device import Device
+    from sqlalchemy.orm import sessionmaker
+
+    Session = sessionmaker(bind=db_engine)  # noqa: N806 — sessionmaker convention
+    db = Session()
+    try:
+        d1 = upsert_device(db, ip_address="192.168.99.30", hostname="alpha")
+        db.commit()
+
+        d2 = upsert_device(db, ip_address="192.168.99.30", hostname="alpha-updated")
+        db.commit()
+
+        assert d1.id == d2.id
+        assert d2.hostname == "alpha-updated"
+    finally:
+        db.query(Device).filter(Device.ip_address == "192.168.99.30").delete()
+        db.commit()
+        db.close()

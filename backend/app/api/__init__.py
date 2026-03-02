@@ -275,6 +275,7 @@ class RiskOut(BaseModel):
     device_id: int
     ip_address: str
     hostname: str | None
+    label: str | None
     severity: str
     display_severity: str  # may differ from severity based on active network profile
     check_id: str
@@ -441,6 +442,7 @@ def _risk_to_out(r, profile: str = "standard_home") -> RiskOut:  # noqa: ANN001 
         device_id=r.device_id,
         ip_address=r.device.ip_address,
         hostname=r.device.hostname,
+        label=r.device.label,
         severity=r.severity,
         display_severity=display_severity_for_check(r.check_id, r.severity, profile),
         check_id=r.check_id,

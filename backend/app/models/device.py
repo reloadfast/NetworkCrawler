@@ -5,6 +5,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     UniqueConstraint,
@@ -22,6 +23,8 @@ class Device(Base):
     __table_args__ = (
         # One row per IP address — upserts update in place rather than inserting duplicates.
         UniqueConstraint("ip_address", name="uq_devices_ip_address"),
+        # Index for MAC-first lookup in upsert_device().
+        Index("ix_devices_mac_address", "mac_address"),
     )
 
     id = Column(Integer, primary_key=True, index=True)

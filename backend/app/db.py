@@ -46,6 +46,13 @@ def _migrate_schema(engine) -> None:
             if column not in existing_cols:
                 conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_def}"))  # noqa: S608 — table/column/col_def are internal constants, not user input
                 conn.commit()
+        # Ensure the MAC address index exists (CREATE INDEX IF NOT EXISTS is idempotent).
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_devices_mac_address ON devices (mac_address)"  # noqa: S608 — DDL constant
+            )
+        )
+        conn.commit()
 
 
 def init_db() -> None:
@@ -93,21 +100,42 @@ def upsert_device(
     hostname: str | None = None,
     os_guess: str | None = None,
 ) -> Device:
-    """Insert or update a Device row keyed on ip_address.
+    """Insert or update a Device row, using MAC address as the primary identity key.
 
-    If a Device with the given ip_address already exists, only non-None
-    fields are written so that richer data from a previous scan is never
-    overwritten with None.  The caller is responsible for committing.
+    Lookup order:
+    1. If mac_address is provided, find an existing device with that MAC.
+       - Found at the same IP → normal update (non-None fields only).
+       - Found at a different IP → update ip_address to the new one, preserving
+         user-set fields (label, trusted, device_type).
+    2. Fall back to ip_address lookup (covers devices that don't broadcast MAC,
+       e.g. traffic routed through a switch without ARP visibility).
+    3. If no existing device is found, create a new one.
 
-    Returns the Device instance (either existing or newly created).
+    The caller is responsible for committing.  Returns the Device instance.
     """
     from sqlalchemy import select
 
     from app.models.device import Device
 
-    stmt = select(Device).where(Device.ip_address == ip_address)
-    device: Device | None = session.execute(stmt).scalar_one_or_none()
+    device: Device | None = None
 
+    # --- MAC-first lookup ---
+    if mac_address is not None:
+        device = session.execute(
+            select(Device).where(Device.mac_address == mac_address)
+        ).scalar_one_or_none()
+        if device is not None and device.ip_address != ip_address:
+            # Device moved to a new IP — update the address in place so
+            # user-assigned label/trusted/device_type are preserved.
+            device.ip_address = ip_address
+
+    # --- IP fallback ---
+    if device is None:
+        device = session.execute(
+            select(Device).where(Device.ip_address == ip_address)
+        ).scalar_one_or_none()
+
+    # --- Create ---
     if device is None:
         device = Device(
             ip_address=ip_address,
@@ -117,15 +145,17 @@ def upsert_device(
             os_guess=os_guess,
         )
         session.add(device)
-    else:
-        if mac_address is not None:
-            device.mac_address = mac_address
-        if vendor is not None:
-            device.vendor = vendor
-        if hostname is not None:
-            device.hostname = hostname
-        if os_guess is not None:
-            device.os_guess = os_guess
+        return device
+
+    # --- Update non-None scan fields (never overwrite user-set fields) ---
+    if mac_address is not None:
+        device.mac_address = mac_address
+    if vendor is not None:
+        device.vendor = vendor
+    if hostname is not None:
+        device.hostname = hostname
+    if os_guess is not None:
+        device.os_guess = os_guess
 
     return device
 

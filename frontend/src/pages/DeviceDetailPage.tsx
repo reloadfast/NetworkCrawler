@@ -208,8 +208,14 @@ export function DeviceDetailPage() {
         </span>
       </div>
       <PageHeader
-        title={device.ip_address}
-        subtitle={displayLabel ?? device.hostname ?? undefined}
+        title={displayLabel ?? device.hostname ?? device.ip_address}
+        subtitle={
+          displayLabel != null
+            ? (device.hostname ?? device.ip_address)
+            : device.hostname != null
+              ? device.ip_address
+              : undefined
+        }
         action={
           <div className="flex items-center gap-3">
             {device.trusted && (
