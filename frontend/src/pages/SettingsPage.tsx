@@ -5,6 +5,12 @@
 import { useEffect, useState } from "react";
 import { Card, PageHeader } from "../components";
 import { useAppVersion } from "../hooks/useAppVersion";
+import type {
+  ChecklistAnswer,
+  ChecklistItem,
+  ChecklistState,
+  PostureBadge,
+} from "../types/api";
 
 /** Copy text to clipboard; works on HTTP as well as HTTPS. */
 function copyViaExecCommand(text: string): void {
@@ -81,9 +87,148 @@ function useWebhookSettings() {
   };
 }
 
+// ── Checklist helpers ─────────────────────────────────────────────────────────
+
+const POSTURE_CONFIG: Record<
+  PostureBadge,
+  { label: string; color: string; bg: string; icon: string }
+> = {
+  at_risk: {
+    label: "At Risk",
+    color: "text-[var(--color-accent-danger)]",
+    bg: "bg-[var(--color-accent-danger)]/10",
+    icon: "🔴",
+  },
+  basic: {
+    label: "Basic",
+    color: "text-[var(--color-accent-warning)]",
+    bg: "bg-[var(--color-accent-warning)]/10",
+    icon: "🟡",
+  },
+  intermediate: {
+    label: "Intermediate",
+    color: "text-[var(--color-accent-positive)]",
+    bg: "bg-[var(--color-accent-positive)]/10",
+    icon: "🟢",
+  },
+  hardened: {
+    label: "Hardened",
+    color: "text-[var(--color-accent-primary)]",
+    bg: "bg-[var(--color-accent-primary)]/10",
+    icon: "🛡️",
+  },
+};
+
+function useChecklist() {
+  const [state, setState] = useState<ChecklistState | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/settings/checklist")
+      .then((r) => r.json())
+      .then((d: ChecklistState) => {
+        if (d && Array.isArray(d.items)) setState(d);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const setAnswer = (key: string, answer: ChecklistAnswer) => {
+    if (!state) return;
+    // Optimistic update
+    setState((prev) => {
+      if (!prev) return prev;
+      const items = prev.items.map((it) =>
+        it.key === key ? { ...it, answer } : it,
+      );
+      const yes_count = items.filter((it) => it.answer === "yes").length;
+      const posture = computePosture(yes_count);
+      return {
+        ...prev,
+        items,
+        yes_count,
+        posture: posture.badge,
+        posture_label: posture.label,
+      };
+    });
+
+    setSaving(true);
+    fetch("/api/settings/checklist", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ answers: { [key]: answer } }),
+    })
+      .then((r) => r.json())
+      .then((d: ChecklistState) => setState(d))
+      .catch(() => {})
+      .finally(() => setSaving(false));
+  };
+
+  return { state, loading, saving, setAnswer };
+}
+
+function computePosture(yesCount: number): {
+  badge: PostureBadge;
+  label: string;
+} {
+  if (yesCount >= 8) return { badge: "hardened", label: "Hardened" };
+  if (yesCount >= 6) return { badge: "intermediate", label: "Intermediate" };
+  if (yesCount >= 4) return { badge: "basic", label: "Basic" };
+  return { badge: "at_risk", label: "At Risk" };
+}
+
+function AnswerToggle({
+  item,
+  onChange,
+}: {
+  item: ChecklistItem;
+  onChange: (key: string, answer: ChecklistAnswer) => void;
+}) {
+  const answers: { value: ChecklistAnswer; label: string }[] = [
+    { value: "yes", label: "Yes" },
+    { value: "no", label: "No" },
+    { value: "unknown", label: "?" },
+  ];
+
+  return (
+    <div className="flex rounded-md border border-[var(--color-border)] overflow-hidden text-xs font-medium">
+      {answers.map(({ value, label }) => {
+        const isActive = item.answer === value;
+        const activeClass =
+          value === "yes"
+            ? "bg-[var(--color-accent-positive)] text-white"
+            : value === "no"
+              ? "bg-[var(--color-accent-danger)] text-white"
+              : "bg-[var(--color-border)] text-[var(--color-text-primary)]";
+        return (
+          <button
+            key={value}
+            onClick={() => onChange(item.key, value)}
+            className={[
+              "px-2.5 py-1 transition-colors duration-150",
+              isActive
+                ? activeClass
+                : "bg-transparent text-[var(--color-text-secondary)] hover:bg-[var(--color-border)]/40",
+            ].join(" ")}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function SettingsPage() {
   const { version, loading: vLoading } = useAppVersion();
   const [copied, setCopied] = useState(false);
+  const {
+    state: checklist,
+    loading: clLoading,
+    saving: clSaving,
+    setAnswer,
+  } = useChecklist();
   const {
     webhookUrl,
     setWebhookUrl,
@@ -211,6 +356,71 @@ export function SettingsPage() {
             </code>{" "}
             fields.
           </p>
+        </Card>
+      </section>
+
+      {/* ── Network Health Checklist ─────────────────────────────────── */}
+      <section aria-labelledby="checklist-heading" className="mb-6">
+        <h2
+          id="checklist-heading"
+          className="mb-3 text-xs font-semibold uppercase tracking-widest text-[var(--color-text-secondary)]"
+        >
+          Network Health Checklist
+        </h2>
+        <Card>
+          {/* Posture badge */}
+          {!clLoading && checklist && (
+            <div
+              className={`mb-5 flex items-center gap-3 rounded-lg px-4 py-3 ${POSTURE_CONFIG[checklist.posture].bg}`}
+            >
+              <span className="text-2xl" aria-hidden="true">
+                {POSTURE_CONFIG[checklist.posture].icon}
+              </span>
+              <div>
+                <p
+                  className={`text-base font-semibold ${POSTURE_CONFIG[checklist.posture].color}`}
+                >
+                  {POSTURE_CONFIG[checklist.posture].label}
+                </p>
+                <p className="text-xs text-[var(--color-text-secondary)]">
+                  {checklist.yes_count} of {checklist.items.length} best
+                  practices confirmed
+                  {clSaving && (
+                    <span className="ml-2 opacity-60">(saving…)</span>
+                  )}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {clLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-10 animate-pulse rounded bg-[var(--color-border)]"
+                />
+              ))}
+            </div>
+          ) : (
+            <ul className="divide-y divide-[var(--color-border)]">
+              {checklist?.items.map((item) => (
+                <li key={item.key} className="py-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="flex-1 text-sm text-[var(--color-text-primary)]">
+                      {item.question}
+                    </span>
+                    <AnswerToggle item={item} onChange={setAnswer} />
+                  </div>
+                  {item.answer !== "yes" && (
+                    <p className="mt-1.5 text-xs text-[var(--color-text-secondary)]">
+                      💡 {item.advice}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </Card>
       </section>
 

@@ -124,3 +124,20 @@ export interface ScanEvent {
 export interface ChangesSummary {
   unreviewed: number;
 }
+
+export type ChecklistAnswer = "yes" | "no" | "unknown";
+export type PostureBadge = "at_risk" | "basic" | "intermediate" | "hardened";
+
+export interface ChecklistItem {
+  key: string;
+  question: string;
+  advice: string;
+  answer: ChecklistAnswer;
+}
+
+export interface ChecklistState {
+  items: ChecklistItem[];
+  posture: PostureBadge;
+  posture_label: string;
+  yes_count: number;
+}

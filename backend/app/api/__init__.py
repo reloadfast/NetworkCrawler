@@ -562,6 +562,173 @@ def test_webhook(db: Annotated[Session, Depends(get_db)]) -> _TestWebhookRespons
     return _TestWebhookResponse(success=True, message=f"Test notification sent to {url}")
 
 
+# ── /api/settings/checklist ───────────────────────────────────────────────────
+
+_CHECKLIST_QUESTIONS: list[dict[str, str]] = [
+    {
+        "key": "checklist_upnp_disabled",
+        "question": "Is UPnP disabled on your router?",
+        "advice": (
+            "UPnP lets devices automatically open ports to the internet. "
+            "Attackers can abuse it to punch holes in your firewall without any credentials."
+        ),
+    },
+    {
+        "key": "checklist_wps_disabled",
+        "question": "Is WPS disabled on your router?",
+        "advice": (
+            "WPS PIN mode can be brute-forced in hours with freely available tools. "
+            "Disable it and rely on WPA2/WPA3 passphrase authentication."
+        ),
+    },
+    {
+        "key": "checklist_wifi_wpa2_or_better",
+        "question": "Is your WiFi using WPA2 or WPA3?",
+        "advice": (
+            "WEP and WPA (TKIP) can be cracked in minutes. "
+            "Upgrade to WPA2-AES minimum; WPA3 is preferred if all your devices support it."
+        ),
+    },
+    {
+        "key": "checklist_admin_wan_blocked",
+        "question": "Is your router admin panel blocked from WAN access?",
+        "advice": (
+            "A WAN-accessible admin panel exposes router management to the entire internet. "
+            "Disable remote management unless you specifically need it."
+        ),
+    },
+    {
+        "key": "checklist_iot_network_isolated",
+        "question": "Do you use a guest or separate VLAN for IoT devices?",
+        "advice": (
+            "IoT devices on your main LAN can pivot to attack PCs, NAS, and other sensitive "
+            "systems. Isolate them on a guest network with no inter-VLAN routing."
+        ),
+    },
+    {
+        "key": "checklist_firmware_updated",
+        "question": "Is your router firmware up to date?",
+        "advice": (
+            "Outdated firmware contains known CVEs that are actively scanned and exploited. "
+            "Check for updates quarterly and enable auto-update if available."
+        ),
+    },
+    {
+        "key": "checklist_unique_passwords",
+        "question": "Do you use unique, strong passwords (e.g. via a password manager)?",
+        "advice": (
+            "Reused passwords enable credential-stuffing attacks: one leaked password "
+            "compromises every account using it. Use a password manager for unique passwords."
+        ),
+    },
+    {
+        "key": "checklist_remote_mgmt_disabled",
+        "question": "Is remote management (SSH/Telnet) disabled on your router?",
+        "advice": (
+            "SSH/Telnet on a router exposed to the internet is a constant brute-force target. "
+            "Disable it unless you have key-only SSH strictly needed."
+        ),
+    },
+]
+
+_POSTURE_LEVELS = [
+    (8, "hardened", "Hardened"),
+    (6, "intermediate", "Intermediate"),
+    (4, "basic", "Basic"),
+    (0, "at_risk", "At Risk"),
+]
+
+
+def _compute_posture(yes_count: int) -> tuple[str, str]:
+    for threshold, badge, label in _POSTURE_LEVELS:
+        if yes_count >= threshold:
+            return badge, label
+    return "at_risk", "At Risk"
+
+
+class ChecklistItemOut(BaseModel):
+    key: str
+    question: str
+    advice: str
+    answer: str  # "yes" | "no" | "unknown"
+
+
+class ChecklistOut(BaseModel):
+    items: list[ChecklistItemOut]
+    posture: str
+    posture_label: str
+    yes_count: int
+
+
+class _ChecklistUpdate(BaseModel):
+    answers: dict[str, str]  # key → "yes"|"no"|"unknown"
+
+
+def _get_checklist(db: Session) -> ChecklistOut:
+    from sqlalchemy import select as sa_select
+
+    from app.models.settings import AppSetting
+
+    valid_answers = {"yes", "no", "unknown"}
+    keys = [q["key"] for q in _CHECKLIST_QUESTIONS]
+    rows = db.execute(sa_select(AppSetting).where(AppSetting.key.in_(keys))).scalars().all()
+    stored = {r.key: r.value for r in rows}
+
+    items: list[ChecklistItemOut] = []
+    yes_count = 0
+    for q in _CHECKLIST_QUESTIONS:
+        raw = stored.get(q["key"], "unknown")
+        answer = raw if raw in valid_answers else "unknown"
+        if answer == "yes":
+            yes_count += 1
+        items.append(
+            ChecklistItemOut(
+                key=q["key"],
+                question=q["question"],
+                advice=q["advice"],
+                answer=answer,
+            )
+        )
+
+    posture, posture_label = _compute_posture(yes_count)
+    return ChecklistOut(
+        items=items,
+        posture=posture,
+        posture_label=posture_label,
+        yes_count=yes_count,
+    )
+
+
+@router.get("/settings/checklist", response_model=ChecklistOut)
+def get_checklist(db: Annotated[Session, Depends(get_db)]) -> ChecklistOut:
+    """Return the network health checklist and current posture badge."""
+    return _get_checklist(db)
+
+
+@router.post("/settings/checklist", response_model=ChecklistOut)
+def update_checklist(
+    body: _ChecklistUpdate,
+    db: Annotated[Session, Depends(get_db)],
+) -> ChecklistOut:
+    """Persist checklist answers and return updated posture."""
+    from app.models.settings import AppSetting
+
+    valid_keys = {q["key"] for q in _CHECKLIST_QUESTIONS}
+    valid_answers = {"yes", "no", "unknown"}
+
+    for key, value in body.answers.items():
+        if key not in valid_keys or value not in valid_answers:
+            continue
+        row = db.get(AppSetting, key)
+        if row is None:
+            db.add(AppSetting(key=key, value=value))
+        else:
+            row.value = value
+
+    db.commit()
+    return _get_checklist(db)
+
+
 # ── /api/changes ──────────────────────────────────────────────────────────────
 
 

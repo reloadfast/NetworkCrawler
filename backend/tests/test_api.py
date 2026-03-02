@@ -27,6 +27,8 @@ def db_engine():
     import app.models.recommendation  # noqa: F401 — side-effect import registers ORM tables
     import app.models.risk  # noqa: F401 — side-effect import registers ORM tables
     import app.models.scan  # noqa: F401 — side-effect import registers ORM tables
+    import app.models.scan_event  # noqa: F401 — side-effect import registers ORM tables
+    import app.models.settings  # noqa: F401 — side-effect import registers ORM tables
     from app.db import Base
 
     # StaticPool keeps a single underlying connection so all sessions share
@@ -621,3 +623,81 @@ def test_scan_response_includes_current_stage(client, seeded_db):
     # The field must be present on every scan record (value may be null)
     for scan in data:
         assert "current_stage" in scan
+
+
+# ── /api/settings/checklist ───────────────────────────────────────────────────
+
+
+def test_get_checklist_returns_default_unknown(client):
+    """GET /api/settings/checklist returns 8 items all answered 'unknown' by default."""
+    resp = client.get("/api/settings/checklist")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data["items"]) == 8
+    assert all(it["answer"] == "unknown" for it in data["items"])
+    assert data["yes_count"] == 0
+    assert data["posture"] == "at_risk"
+
+
+def test_post_checklist_saves_answer(client):
+    """POST /api/settings/checklist persists a yes answer and updates posture."""
+    resp = client.post(
+        "/api/settings/checklist",
+        json={"answers": {"checklist_upnp_disabled": "yes"}},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    upnp = next(it for it in data["items"] if it["key"] == "checklist_upnp_disabled")
+    assert upnp["answer"] == "yes"
+    assert data["yes_count"] == 1
+
+
+def test_post_checklist_full_yes_returns_hardened(client):
+    """Answering yes to all 8 questions should return posture='hardened'."""
+    keys = [
+        "checklist_upnp_disabled",
+        "checklist_wps_disabled",
+        "checklist_wifi_wpa2_or_better",
+        "checklist_admin_wan_blocked",
+        "checklist_iot_network_isolated",
+        "checklist_firmware_updated",
+        "checklist_unique_passwords",
+        "checklist_remote_mgmt_disabled",
+    ]
+    resp = client.post(
+        "/api/settings/checklist",
+        json={"answers": dict.fromkeys(keys, "yes")},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["yes_count"] == 8
+    assert data["posture"] == "hardened"
+    assert data["posture_label"] == "Hardened"
+
+
+def test_post_checklist_ignores_invalid_keys(client):
+    """POST /api/settings/checklist silently ignores unknown keys."""
+    # Reset all answers first (state shared across module-scoped DB)
+    client.post(
+        "/api/settings/checklist",
+        json={"answers": {"checklist_upnp_disabled": "unknown"}},
+    )
+    resp = client.post(
+        "/api/settings/checklist",
+        json={"answers": {"not_a_real_key": "yes"}},
+    )
+    assert resp.status_code == 200
+    upnp = next(it for it in resp.json()["items"] if it["key"] == "checklist_upnp_disabled")
+    assert upnp["answer"] == "unknown"
+
+
+def test_post_checklist_ignores_invalid_values(client):
+    """POST /api/settings/checklist silently ignores invalid answer values."""
+    resp = client.post(
+        "/api/settings/checklist",
+        json={"answers": {"checklist_upnp_disabled": "maybe"}},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    upnp = next(it for it in data["items"] if it["key"] == "checklist_upnp_disabled")
+    assert upnp["answer"] == "unknown"
