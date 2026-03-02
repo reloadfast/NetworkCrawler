@@ -24,6 +24,7 @@ function copyViaExecCommand(text: string): void {
 const navLinks = [
   { to: "/", label: "Dashboard", end: true },
   { to: "/devices", label: "Devices", end: false },
+  { to: "/topology", label: "Topology", end: false },
   { to: "/risks", label: "Risks", end: false },
   { to: "/changes", label: "Changes", end: false },
   { to: "/history", label: "History", end: false },

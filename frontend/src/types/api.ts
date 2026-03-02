@@ -165,3 +165,15 @@ export interface SegmentationInsight {
   mixed_risk_pairs: MixedRiskPair[];
   recommendations: string[];
 }
+
+export interface TopologyNode {
+  id: number;
+  ip_address: string;
+  label: string | null;
+  hostname: string | null;
+  device_type: DeviceType;
+  highest_severity: Severity | null;
+  port_count: number;
+  security_score: number;
+  is_gateway: boolean;
+}

@@ -870,3 +870,65 @@ def test_segmentation_mixed_risk_pair_detected(client, db_engine):
     db.delete(srv)
     db.commit()
     db.close()
+
+
+# ── /api/topology ──────────────────────────────────────────────────────────────
+
+
+def test_topology_empty(client):
+    """GET /api/topology returns empty list when no devices."""
+    resp = client.get("/api/topology")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_topology_returns_nodes(client, seeded_db):
+    """GET /api/topology returns one node per device with required fields."""
+    resp = client.get("/api/topology")
+    assert resp.status_code == 200
+    nodes = resp.json()
+    assert len(nodes) >= 1
+    node = nodes[0]
+    for field in ("id", "ip_address", "device_type", "port_count", "security_score", "is_gateway"):
+        assert field in node, f"missing field: {field}"
+
+
+def test_topology_gateway_detection_by_ip(client, db_engine):
+    """GET /api/topology marks device ending in .1 as gateway."""
+    from app.models.device import Device
+
+    S = sessionmaker(bind=db_engine)  # noqa: N806 -- uppercase matches SQLAlchemy Session convention
+    db = S()
+    gw = Device(ip_address="192.168.1.1", device_type="unknown")
+    other = Device(ip_address="192.168.1.50", device_type="workstation")
+    db.add_all([gw, other])
+    db.commit()
+
+    resp = client.get("/api/topology")
+    nodes = {n["ip_address"]: n for n in resp.json()}
+    assert nodes["192.168.1.1"]["is_gateway"] is True
+    assert nodes["192.168.1.50"]["is_gateway"] is False
+
+    db.delete(gw)
+    db.delete(other)
+    db.commit()
+    db.close()
+
+
+def test_topology_gateway_detection_by_type(client, db_engine):
+    """GET /api/topology marks device with device_type=router as gateway."""
+    from app.models.device import Device
+
+    S = sessionmaker(bind=db_engine)  # noqa: N806 -- uppercase matches SQLAlchemy Session convention
+    db = S()
+    router = Device(ip_address="10.0.0.254", device_type="router")
+    db.add(router)
+    db.commit()
+
+    resp = client.get("/api/topology")
+    nodes = {n["ip_address"]: n for n in resp.json()}
+    assert nodes["10.0.0.254"]["is_gateway"] is True
+
+    db.delete(router)
+    db.commit()
+    db.close()
