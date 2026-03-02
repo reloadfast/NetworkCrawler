@@ -9,3 +9,4 @@ export { RecommendationsPage } from "./RecommendationsPage";
 export { RecommendationDetailPage } from "./RecommendationDetailPage";
 export { SettingsPage } from "./SettingsPage";
 export { ChangesPage } from "./ChangesPage";
+export { TopologyPage } from "./TopologyPage";

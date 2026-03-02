@@ -14,6 +14,7 @@ import {
   RecommendationsPage,
   RecommendationDetailPage,
   SettingsPage,
+  TopologyPage,
 } from "./pages";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -32,6 +33,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             element={<RecommendationDetailPage />}
           />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="topology" element={<TopologyPage />} />
           <Route path="docs" element={<DocsPage />} />
           <Route path="changes" element={<ChangesPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

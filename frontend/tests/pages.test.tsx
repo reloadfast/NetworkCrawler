@@ -112,6 +112,7 @@ function buildFetch(overrides: Record<string, unknown> = {}) {
         mixed_risk_pairs: [],
         recommendations: [],
       },
+      "/api/topology": [],
       ...overrides,
     };
     // match base path for parameterised URLs
@@ -410,5 +411,64 @@ describe("RisksPage", () => {
     expect(
       screen.getByRole("combobox", { name: /Filter by severity/i }),
     ).toBeInTheDocument();
+  });
+});
+
+// ── TopologyPage ──────────────────────────────────────────────────────────────
+
+import { TopologyPage } from "../src/pages/TopologyPage";
+
+describe("TopologyPage", () => {
+  it("shows empty state when no devices", async () => {
+    vi.stubGlobal("fetch", buildFetch({ "/api/topology": [] }));
+    render(
+      <MemoryRouter>
+        <TopologyPage />
+      </MemoryRouter>,
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByText(/no devices found/i),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it("shows topology canvas when devices are present", async () => {
+    const nodes = [
+      {
+        id: 1,
+        ip_address: "192.168.1.1",
+        label: null,
+        hostname: "router",
+        device_type: "router",
+        highest_severity: null,
+        port_count: 1,
+        security_score: 100,
+        is_gateway: true,
+      },
+      {
+        id: 2,
+        ip_address: "192.168.1.10",
+        label: "my-pc",
+        hostname: null,
+        device_type: "workstation",
+        highest_severity: "high",
+        port_count: 3,
+        security_score: 70,
+        is_gateway: false,
+      },
+    ];
+    vi.stubGlobal("fetch", buildFetch({ "/api/topology": nodes }));
+    render(
+      <MemoryRouter>
+        <TopologyPage />
+      </MemoryRouter>,
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByText(/network topology/i),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByText(/2 device/i)).toBeInTheDocument();
   });
 });

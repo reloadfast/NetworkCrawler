@@ -898,3 +898,65 @@ def get_segmentation(db: Annotated[Session, Depends(get_db)]) -> SegmentationOut
         ],
         recommendations=result.recommendations,
     )
+
+
+# ── /api/topology ──────────────────────────────────────────────────────────────
+
+
+class TopologyNode(BaseModel):
+    id: int
+    ip_address: str
+    label: str | None
+    hostname: str | None
+    device_type: str
+    highest_severity: str | None  # critical | high | medium | low | None
+    port_count: int
+    security_score: int
+    is_gateway: bool
+
+
+@router.get("/topology", response_model=list[TopologyNode])
+def get_topology(db: Annotated[Session, Depends(get_db)]) -> list[TopologyNode]:
+    """Return all devices enriched for network topology visualisation."""
+    from app.models.device import Device
+
+    devices = (
+        db.execute(select(Device).options(selectinload(Device.risks), selectinload(Device.ports)))
+        .scalars()
+        .all()
+    )
+
+    # Gateway detection: explicit router type, or first device whose IP ends in .1
+    gateway_id: int | None = None
+    for d in devices:
+        if d.device_type == "router":
+            gateway_id = d.id
+            break
+    if gateway_id is None:
+        for d in devices:
+            if d.ip_address and d.ip_address.endswith(".1"):
+                gateway_id = d.id
+                break
+
+    _severity_rank = {"critical": 4, "high": 3, "medium": 2, "low": 1}
+
+    def _highest_severity(d) -> str | None:  # noqa: ANN001 — SQLAlchemy instance
+        severities = [r.severity for r in d.risks if not r.acknowledged_at]
+        if not severities:
+            return None
+        return max(severities, key=lambda s: _severity_rank.get(s, 0))
+
+    return [
+        TopologyNode(
+            id=d.id,
+            ip_address=d.ip_address,
+            label=d.label,
+            hostname=d.hostname,
+            device_type=d.device_type or "unknown",
+            highest_severity=_highest_severity(d),
+            port_count=len(d.ports),
+            security_score=_device_security_score(d),
+            is_gateway=(d.id == gateway_id),
+        )
+        for d in devices
+    ]
