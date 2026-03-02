@@ -20,6 +20,7 @@ import type {
   NetworkProfile,
   PostureBadge,
   SegmentationInsight,
+  WanInfo,
 } from "../types/api";
 
 // ── Accent stripe colours per stat card ───────────────────────────────────────
@@ -201,6 +202,21 @@ function useSegmentation() {
   return data;
 }
 
+function useWanInfo() {
+  const [info, setInfo] = useState<WanInfo | null>(null);
+
+  useEffect(() => {
+    fetch("/api/network/wan")
+      .then((r) => r.json())
+      .then((d: WanInfo) => {
+        if (d && d.wan_ip !== undefined) setInfo(d);
+      })
+      .catch(() => {});
+  }, []);
+
+  return info;
+}
+
 function SegmentationAdvisory({
   data,
   onDismiss,
@@ -317,6 +333,7 @@ export function DashboardPage() {
   const { posture, yesCount, total } = usePostureBadge();
   const activeProfile = useActiveProfile();
   const segmentation = useSegmentation();
+  const wanInfo = useWanInfo();
   const [segmentationDismissed, setSegmentationDismissed] = useState(false);
 
   const lastScan = scans[0] ?? null;
@@ -375,6 +392,20 @@ export function DashboardPage() {
         }
         action={triggerButton}
       />
+
+      {wanInfo?.wan_ip && (
+        <p className="mb-4 -mt-3 text-xs text-[var(--color-text-secondary)]">
+          <span
+            title="This is what the internet sees as your network address"
+            className="inline-flex items-center gap-1 cursor-default"
+          >
+            🌐 WAN IP:{" "}
+            <span className="font-mono text-[var(--color-text-primary)]">
+              {wanInfo.wan_ip}
+            </span>
+          </span>
+        </p>
+      )}
 
       {noScansYet && (
         <Card className="mb-6 flex flex-col items-center gap-4 py-10 text-center">

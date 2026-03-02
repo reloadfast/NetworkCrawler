@@ -21,6 +21,38 @@ from app.scanner import ScanResult, orchestrate_scan
 logger = logging.getLogger(__name__)
 
 
+def _fetch_wan_ip() -> str | None:
+    """Fetch public WAN IP from checkip.amazonaws.com with a 3-second timeout.
+
+    Returns the IP string on success, or None if the network is unreachable / request fails.
+    """
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen("https://checkip.amazonaws.com", timeout=3) as resp:
+            return resp.read().decode().strip()
+    except Exception:  # noqa: BLE001 -- best-effort; failures silently skipped
+        return None
+
+
+def _update_wan_ip(db: Session) -> None:
+    """Detect public WAN IP and store it as AppSettings. Silently ignores failures."""
+    wan_ip = _fetch_wan_ip()
+    if wan_ip is None:
+        return
+    from app.models.settings import AppSetting
+
+    now = datetime.now(tz=UTC).isoformat()
+    for key, value in (("wan_ip", wan_ip), ("wan_ip_detected_at", now)):
+        row = db.get(AppSetting, key)
+        if row is None:
+            db.add(AppSetting(key=key, value=value))
+        else:
+            row.value = value
+    db.commit()
+    logger.info("WAN IP updated: %s", wan_ip)
+
+
 @dataclass
 class _PersistSummary:
     """Summary of what changed during a single call to _persist_result."""
@@ -105,6 +137,9 @@ def run_scan_and_persist(triggered_by: str = "scheduler") -> int:
         )
 
         generate_all_recommendations(db)
+
+        # Best-effort WAN IP detection (3 s timeout, never fails the scan)
+        _update_wan_ip(db)
 
         # Fire webhook notification (new devices or critical risks)
         from app.notifications import (

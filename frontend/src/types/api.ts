@@ -177,3 +177,8 @@ export interface TopologyNode {
   security_score: number;
   is_gateway: boolean;
 }
+
+export interface WanInfo {
+  wan_ip: string | null;
+  detected_at: string | null; // ISO-8601 or null
+}
