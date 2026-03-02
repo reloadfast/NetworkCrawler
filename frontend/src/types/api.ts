@@ -64,6 +64,7 @@ export interface Risk {
   ip_address: string;
   hostname: string | null;
   severity: Severity;
+  display_severity: Severity;
   check_id: string;
   title: string;
   description: string;
@@ -103,6 +104,13 @@ export interface RiskSummary {
 export interface HealthResponse {
   status: string;
   version: string;
+}
+
+export type NetworkProfile = "standard_home" | "home_lab" | "privacy_focused";
+
+export interface Settings {
+  webhook_url: string | null;
+  network_profile: NetworkProfile;
 }
 
 export interface ScanEvent {

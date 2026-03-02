@@ -56,7 +56,7 @@ function mockHealthFetch(data: HealthResponse, ok = true) {
       return Promise.resolve({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ webhook_url: null }),
+        json: () => Promise.resolve({ webhook_url: null, network_profile: "standard_home" }),
       });
     }
     return Promise.resolve({
@@ -95,7 +95,7 @@ function mockAllFetch(healthData: HealthResponse) {
       return Promise.resolve({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ webhook_url: null }),
+        json: () => Promise.resolve({ webhook_url: null, network_profile: "standard_home" }),
       });
     }
     return Promise.resolve({

@@ -9,6 +9,7 @@ import type {
   ChecklistAnswer,
   ChecklistItem,
   ChecklistState,
+  NetworkProfile,
   PostureBadge,
 } from "../types/api";
 
@@ -87,7 +88,62 @@ function useWebhookSettings() {
   };
 }
 
-// ── Checklist helpers ─────────────────────────────────────────────────────────
+// ── Network profile hook ──────────────────────────────────────────────────────
+
+const PROFILE_OPTIONS: {
+  value: NetworkProfile;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "standard_home",
+    label: "Standard Home",
+    description:
+      "Conservative defaults. SSH open = high. Any open admin panel = high.",
+  },
+  {
+    value: "home_lab",
+    label: "Home Lab",
+    description:
+      "Relaxed. SSH with key-auth = low. Multiple open ports are expected.",
+  },
+  {
+    value: "privacy_focused",
+    label: "Privacy Focused",
+    description:
+      "Stricter. Any unencrypted protocol = critical. DNS resolver = critical.",
+  },
+];
+
+function useNetworkProfile() {
+  const [profile, setProfile] = useState<NetworkProfile>("standard_home");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d: { network_profile?: NetworkProfile }) => {
+        if (d.network_profile) setProfile(d.network_profile);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const save = (value: NetworkProfile) => {
+    setProfile(value);
+    setSaving(true);
+    fetch("/api/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ network_profile: value }),
+    })
+      .catch(() => {})
+      .finally(() => setSaving(false));
+  };
+
+  return { profile, loading, saving, save };
+}
 
 const POSTURE_CONFIG: Record<
   PostureBadge,
@@ -239,6 +295,12 @@ export function SettingsPage() {
     save,
     test,
   } = useWebhookSettings();
+  const {
+    profile,
+    loading: profileLoading,
+    saving: profileSaving,
+    save: saveProfile,
+  } = useNetworkProfile();
 
   const handleCopyVersion = () => {
     if (!version) return;
@@ -356,6 +418,60 @@ export function SettingsPage() {
             </code>{" "}
             fields.
           </p>
+        </Card>
+      </section>
+
+      {/* ── Network Context Profile ──────────────────────────────────── */}
+      <section aria-labelledby="profile-heading" className="mb-6">
+        <h2
+          id="profile-heading"
+          className="mb-3 text-xs font-semibold uppercase tracking-widest text-[var(--color-text-secondary)]"
+        >
+          Network Context Profile
+        </h2>
+        <Card>
+          <p className="mb-4 text-sm text-[var(--color-text-secondary)]">
+            Adjusts how risk severities are displayed based on your network
+            context. The stored risk severity is never changed — only the
+            presentation layer is affected.
+          </p>
+          <fieldset disabled={profileLoading || profileSaving}>
+            <legend className="sr-only">Network context profile</legend>
+            <div className="space-y-3">
+              {PROFILE_OPTIONS.map((opt) => (
+                <label
+                  key={opt.value}
+                  className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
+                    profile === opt.value
+                      ? "border-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/5"
+                      : "border-[var(--color-border)] hover:border-[var(--color-accent-primary)]/40"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="network_profile"
+                    value={opt.value}
+                    checked={profile === opt.value}
+                    onChange={() => saveProfile(opt.value)}
+                    className="mt-0.5 accent-[var(--color-accent-primary)]"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                      {opt.label}
+                    </p>
+                    <p className="text-xs text-[var(--color-text-secondary)]">
+                      {opt.description}
+                    </p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          {profileSaving && (
+            <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
+              Saving…
+            </p>
+          )}
         </Card>
       </section>
 

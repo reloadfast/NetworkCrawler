@@ -22,7 +22,9 @@ const RiskCard = memo(function RiskCard({ risk }: { risk: Risk }) {
   return (
     <Card>
       <div className="mb-2 flex flex-wrap items-center gap-3">
-        <Badge variant={risk.severity}>{risk.severity}</Badge>
+        <Badge variant={risk.display_severity ?? risk.severity}>
+          {risk.display_severity ?? risk.severity}
+        </Badge>
         <span className="font-medium">{risk.title}</span>
       </div>
       <p className="text-sm text-[var(--color-text-secondary)]">

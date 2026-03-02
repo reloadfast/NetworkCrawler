@@ -2,7 +2,7 @@
  * DashboardPage — summary cards, last scan info, and quick-trigger button.
  * Route: /
  */
-import React, { memo, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Card,
@@ -16,7 +16,7 @@ import {
 import { useDevices, useScans, useTriggerScan, useRiskSummary } from "../hooks";
 import { useScanStatus } from "../hooks/useScanStatus";
 import { useToast } from "../hooks/useToast";
-import type { PostureBadge } from "../types/api";
+import type { NetworkProfile, PostureBadge } from "../types/api";
 
 // ── Accent stripe colours per stat card ───────────────────────────────────────
 const STRIPE: Record<string, string> = {
@@ -159,7 +159,28 @@ function usePostureBadge() {
   return { posture, yesCount, total };
 }
 
-const StatCard = memo(function StatCard({
+const PROFILE_LABELS: Record<NetworkProfile, string> = {
+  standard_home: "Standard Home",
+  home_lab: "Home Lab",
+  privacy_focused: "Privacy Focused",
+};
+
+function useActiveProfile() {
+  const [profile, setProfile] = useState<NetworkProfile | null>(null);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d: { network_profile?: NetworkProfile }) => {
+        if (d?.network_profile) setProfile(d.network_profile);
+      })
+      .catch(() => {});
+  }, []);
+
+  return profile;
+}
+
+function StatCard({
   label,
   value,
   sub,
@@ -203,7 +224,7 @@ const StatCard = memo(function StatCard({
     </div>
   );
   return to ? <Link to={to}>{inner}</Link> : inner;
-});
+}
 
 export function DashboardPage() {
   const { devices, loading: devLoading } = useDevices();
@@ -214,6 +235,7 @@ export function DashboardPage() {
   const { toasts, addToast, dismissToast } = useToast();
   const [scanStartedId, setScanStartedId] = useState<number | null>(null);
   const { posture, yesCount, total } = usePostureBadge();
+  const activeProfile = useActiveProfile();
 
   const lastScan = scans[0] ?? null;
   const loading = devLoading || scanLoading || summaryLoading;
@@ -262,7 +284,15 @@ export function DashboardPage() {
         />
       )}
 
-      <PageHeader title="Dashboard" action={triggerButton} />
+      <PageHeader
+        title="Dashboard"
+        subtitle={
+          activeProfile
+            ? `Profile: ${PROFILE_LABELS[activeProfile]}`
+            : undefined
+        }
+        action={triggerButton}
+      />
 
       {noScansYet && (
         <Card className="mb-6 flex flex-col items-center gap-4 py-10 text-center">
