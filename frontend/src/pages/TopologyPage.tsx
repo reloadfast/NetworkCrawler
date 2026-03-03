@@ -249,7 +249,7 @@ export function TopologyPage() {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-col">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
@@ -277,8 +277,8 @@ export function TopologyPage() {
         </div>
       </div>
       <div
-        className="flex-1 overflow-hidden rounded-xl border border-[var(--color-border)]"
-        style={{ minHeight: 500 }}
+        className="overflow-hidden rounded-xl border border-[var(--color-border)]"
+        style={{ height: "calc(100vh - 240px)", minHeight: 500 }}
       >
         <ReactFlow
           nodes={rfNodes}
