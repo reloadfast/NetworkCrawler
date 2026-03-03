@@ -57,7 +57,7 @@
   --xy-controls-button-color: var(--color-text-primary);
   --xy-controls-button-color-hover: var(--color-text-primary);
   --xy-controls-button-border-color: var(--color-border);
-  --xy-controls-box-shadow: 0 1px 4px rgba(0,0,0,.15);
+  --xy-controls-box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
 }
 
 *,
