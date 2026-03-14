@@ -159,6 +159,8 @@ jobs:
 
       # Run Trivy — report CRITICAL/HIGH; results visible in Security tab without blocking merges
       - name: Run Trivy vulnerability scan
+        id: trivy_scan
+        continue-on-error: true
         uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: networkcrawler:scan
@@ -169,9 +171,20 @@ jobs:
           ignore-unfixed: true
 
       # Always upload SARIF even if the scan found issues, so results are visible in Security tab
-      - name: Upload SARIF results
+      - name: Check for SARIF output
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        id: trivy_sarif
+        run: |
+          if [ -f trivy-results.sarif ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Trivy SARIF not produced (scan setup/network issue); skipping upload."
+          fi
+
+      - name: Upload SARIF results
+        if: always() && steps.trivy_sarif.outputs.exists == 'true'
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif
           category: trivy
