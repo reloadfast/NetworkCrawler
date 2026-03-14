@@ -103,5 +103,7 @@ jobs:
       - name: Vitest — run tests with coverage
         run: npm run test:coverage
 
-      - name: npm audit — fail on HIGH severity
-        run: npm audit --audit-level=high
+      - name: npm audit (production deps) — fail on HIGH severity
+        # Frontend bundles only runtime dependencies; dev-tool advisories (vite/vitest/esbuild)
+        # do not ship in production artifacts and are enforced separately via updates.
+        run: npm audit --omit=dev --audit-level=high
