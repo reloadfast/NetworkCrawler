@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
-import logging
 
 if TYPE_CHECKING:
     from app.models.device import Device
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./networkcrawler.db")
+logger = logging.getLogger(__name__)
 
 engine = create_engine(
     DATABASE_URL,
@@ -131,7 +132,14 @@ def upsert_device(
                 select(Device).where(Device.ip_address == ip_address)
             ).scalar_one_or_none()
             if existing_device_with_new_ip is not None:
-                logger.error(f"Attempted to update device with MAC {mac_address} to IP {ip_address}, but IP already exists for device with ID {existing_device_with_new_ip.id}. Skipping update.")
+                logger.error(
+                    "Attempted to update device with MAC %s to IP %s, "
+                    "but IP already exists for device with ID %s. "
+                    "Skipping update.",
+                    mac_address,
+                    ip_address,
+                    existing_device_with_new_ip.id,
+                )
             else:
                 # Device moved to a new IP — update the address in place so
                 # user-assigned label/trusted/device_type are preserved.
@@ -143,7 +151,13 @@ def upsert_device(
             select(Device).where(Device.ip_address == ip_address)
         ).scalar_one_or_none()
         if device is not None:
-            logger.error(f"Attempted to create a new device with IP {ip_address}, but IP already exists for device with ID {device.id}. Skipping update.")
+            logger.error(
+                "Attempted to create a new device with IP %s, "
+                "but IP already exists for device with ID %s. "
+                "Skipping update.",
+                ip_address,
+                device.id,
+            )
             return device
 
     # --- Create ---
