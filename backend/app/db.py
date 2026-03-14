@@ -150,15 +150,6 @@ def upsert_device(
         device = session.execute(
             select(Device).where(Device.ip_address == ip_address)
         ).scalar_one_or_none()
-        if device is not None:
-            logger.error(
-                "Attempted to create a new device with IP %s, "
-                "but IP already exists for device with ID %s. "
-                "Skipping update.",
-                ip_address,
-                device.id,
-            )
-            return device
 
     # --- Create ---
     if device is None:
