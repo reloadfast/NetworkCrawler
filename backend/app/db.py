@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+import logging
 
 if TYPE_CHECKING:
     from app.models.device import Device
@@ -125,15 +126,25 @@ def upsert_device(
             select(Device).where(Device.mac_address == mac_address)
         ).scalar_one_or_none()
         if device is not None and device.ip_address != ip_address:
-            # Device moved to a new IP — update the address in place so
-            # user-assigned label/trusted/device_type are preserved.
-            device.ip_address = ip_address
+            # Check if the new IP address already exists in the devices table
+            existing_device_with_new_ip = session.execute(
+                select(Device).where(Device.ip_address == ip_address)
+            ).scalar_one_or_none()
+            if existing_device_with_new_ip is not None:
+                logger.error(f"Attempted to update device with MAC {mac_address} to IP {ip_address}, but IP already exists for device with ID {existing_device_with_new_ip.id}. Skipping update.")
+            else:
+                # Device moved to a new IP — update the address in place so
+                # user-assigned label/trusted/device_type are preserved.
+                device.ip_address = ip_address
 
     # --- IP fallback ---
     if device is None:
         device = session.execute(
             select(Device).where(Device.ip_address == ip_address)
         ).scalar_one_or_none()
+        if device is not None:
+            logger.error(f"Attempted to create a new device with IP {ip_address}, but IP already exists for device with ID {device.id}. Skipping update.")
+            return device
 
     # --- Create ---
     if device is None:
