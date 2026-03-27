@@ -40,10 +40,13 @@ jobs:
         run: ruff format --check .
 
       - name: Check for bare noqa (without justification comment)
-        # Fail if any line has `# noqa` not followed by an inline comment
-        # e.g.  `# noqa: E501` alone is a bare suppress; `# noqa: E501 — reason` passes
+        # Allow:  # noqa: E501 — reason   or   # noqa: E501 -- reason   or   # noqa: E501 # reason
+        # Deny:   # noqa   or   # noqa: E501   (rule code but no explanation)
+        # Uses grep -E and locale-safe pattern: requires at least one non-space char
+        # after the rule code(s) and a separating space.
         run: |
-          if grep -rn --include="*.py" '# noqa' . | grep -v '# noqa.*—\|# noqa.*--\|# noqa.*:.*#'; then
+          if LC_ALL=en_US.UTF-8 grep -rn --include="*.py" '# noqa' . \
+             | LC_ALL=en_US.UTF-8 grep -Ev '# noqa.*:[^#]+ [^[:space:]]'; then
             echo "ERROR: bare '# noqa' found without inline justification comment."
             exit 1
           fi
