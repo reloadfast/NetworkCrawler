@@ -1,24 +1,16 @@
 name: Docker — Build & Push
 
 # Triggers:
-#   • Push to main             → builds and pushes :latest + :<sha>
-#   • Version tag (v*)         → builds and pushes :latest + :<semver>  (e.g. v1.2.3 → 1.2.3)
-#   • Pull request against main → build-only (no push) for image validation
+#   • Push to main → build, push :latest + :sha-XXXXXXX, smoke test
+#   • Pull request → build only (no push) for image validation
 #
-# Architecture strategy — matrix + merge-manifests:
-#   Each arch builds natively on its own runner in parallel (amd64 on ubuntu-latest,
-#   arm64 on ubuntu-24.04-arm), pushes a per-arch digest, then a final "merge" job
-#   assembles them into a single multi-arch manifest. This avoids 30+ min QEMU
-#   emulation for arm64 on free GitHub runners.
-#
-# Required GitHub repository secrets (Settings → Secrets → Actions):
-#   DOCKERHUB_USERNAME   — your Docker Hub username  (talesofthemoon)
-#   DOCKERHUB_TOKEN      — Docker Hub access token   (Account Settings → Security → New Access Token)
+# Registry: forgejo.moseisley.es (Forgejo container registry)
+# Secret required: FORGEJO_TOKEN — Forgejo PAT with package + repo scopes
+#   Create at: Forgejo → Settings → Applications → Generate Token
 
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
     branches: [main]
 
@@ -27,50 +19,33 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  IMAGE: talesofthemoon/networkcrawler
+  IMAGE: forgejo.moseisley.es/wind/networkcrawler
+  REGISTRY: forgejo.moseisley.es
 
 jobs:
-  # ── Job 1: Build one arch per runner ──────────────────────────────────────────
   build:
-    name: Build (${{ matrix.platform }})
-    runs-on: ${{ matrix.runner }}
-
-    permissions:
-      contents: read
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: linux/amd64
-            runner: ubuntu-latest
-          - platform: linux/arm64
-            runner: ubuntu-24.04-arm
-
-    outputs:
-      # Each matrix job writes its digest; the merge job reads both.
-      # GitHub Actions matrix outputs are keyed by a safe arch suffix.
-      digest-amd64: ${{ steps.push.outputs.digest }}
-      digest-arm64: ${{ steps.push.outputs.digest }}
+    name: Build & Push
+    runs-on: ubuntu-latest
 
     steps:
-      # ── Checkout ──────────────────────────────────────────────────────────────
       - uses: actions/checkout@v4
 
-      # ── Buildx ────────────────────────────────────────────────────────────────
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # ── Authenticate to Docker Hub (skip on PR builds) ────────────────────────
-      - name: Log in to Docker Hub
+      - name: Log in to Forgejo registry
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.FORGEJO_TOKEN }}
 
-      # ── Generate OCI labels (tags computed in merge job) ──────────────────────
-      - name: Generate Docker metadata
+      - name: Get short SHA
+        id: sha
+        run: echo "short=$(echo ${{ github.sha }} | head -c7)" >> $GITHUB_OUTPUT
+
+      - name: Generate Docker image tags
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -78,181 +53,43 @@ jobs:
           labels: |
             org.opencontainers.image.title=NetworkCrawler
             org.opencontainers.image.description=LAN security posture scanner for home lab operators
-            org.opencontainers.image.vendor=talesofthemoon
             org.opencontainers.image.licenses=MIT
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,prefix=sha-,format=short
 
-      # ── Short SHA for version label ───────────────────────────────────────────
-      - name: Set short SHA
-        id: sha
-        run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
-
-      # ── Build and push per-arch digest ────────────────────────────────────────
-      #   On PRs: build only (no push, no digest needed).
-      #   On push/tag: push digest-only (no manifest tag) via outputs; the merge
-      #   job applies final tags. Do NOT also set push: true — that would attempt
-      #   a tagged push which has no tag and causes an auth scope error.
-      - name: Build and push per-arch digest
-        id: push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: docker/Dockerfile
-          platforms: ${{ matrix.platform }}
-          # Use outputs to drive push so push-by-digest works correctly.
-          # On PRs: type=docker (local load, no push). On push/tag: digest-only push.
-          outputs: ${{ github.event_name != 'pull_request' && format('type=image,name={0},push-by-digest=true,name-canonical=true,push=true', env.IMAGE) || 'type=docker' }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: APP_VERSION=${{ steps.sha.outputs.short }}
-          # Per-arch GHA cache (keyed by platform so they don't collide)
-          cache-from: type=gha,scope=${{ matrix.platform }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
-
-      # ── Export digest to a file for the merge job ─────────────────────────────
-      - name: Export digest
-        if: github.event_name != 'pull_request'
-        run: |
-          mkdir -p /tmp/digests
-          # digest is e.g. sha256:abc123...
-          digest="${{ steps.push.outputs.digest }}"
-          touch "/tmp/digests/${digest#sha256:}"
-
-      - name: Upload digest artifact
-        if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: digest-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
-          path: /tmp/digests/*
-          if-no-files-found: error
-          retention-days: 1
-
-  # ── Job 2: Trivy container vulnerability scan (amd64, every PR and push) ──────
-  trivy:
-    name: Trivy scan
-    runs-on: ubuntu-latest
-    needs: build
-
-    permissions:
-      contents: read
-      security-events: write  # for uploading SARIF results
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Set short SHA
-        id: sha
-        run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
-
-      # Build the image locally for scanning (amd64 only — same OS layers as arm64)
-      - name: Build image for scanning
+      - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/Dockerfile
           platforms: linux/amd64
-          load: true
-          tags: networkcrawler:scan
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           build-args: APP_VERSION=${{ steps.sha.outputs.short }}
-          cache-from: type=gha,scope=linux/amd64
 
-      # Run Trivy — report CRITICAL/HIGH; results visible in Security tab without blocking merges
-      - name: Run Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: networkcrawler:scan
-          format: sarif
-          output: trivy-results.sarif
-          severity: CRITICAL,HIGH
-          exit-code: "0"
-          ignore-unfixed: true
-
-      # Always upload SARIF even if the scan found issues, so results are visible in Security tab
-      - name: Upload SARIF results
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy-results.sarif
-          category: trivy
-
-  # ── Job 3: Merge per-arch digests into a single multi-arch manifest ───────────
-  merge:
-    name: Merge manifests
-    runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request'
-    needs: [build, trivy]
-
-    permissions:
-      contents: read
-
-    steps:
-      - uses: actions/checkout@v4
-
-      # ── Download both arch digests ─────────────────────────────────────────────
-      - name: Download digests
-        uses: actions/download-artifact@v4
-        with:
-          path: /tmp/digests
-          pattern: digest-*
-          merge-multiple: true
-
-      # ── Buildx ────────────────────────────────────────────────────────────────
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      # ── Authenticate ──────────────────────────────────────────────────────────
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      # ── Compute final tags ────────────────────────────────────────────────────
-      #   main branch  → :latest  +  :<short-sha>
-      #   v1.2.3 tag   → :latest  +  :1.2.3  +  :1.2  +  :1
-      - name: Generate Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE }}
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix=sha-,enable={{is_default_branch}}
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-          labels: |
-            org.opencontainers.image.title=NetworkCrawler
-            org.opencontainers.image.description=LAN security posture scanner for home lab operators
-            org.opencontainers.image.vendor=talesofthemoon
-            org.opencontainers.image.licenses=MIT
-
-      # ── Merge digests into a multi-arch manifest ──────────────────────────────
-      - name: Create and push multi-arch manifest
-        working-directory: /tmp/digests
+      - name: Smoke test
+        if: github.event_name != 'pull_request'
         run: |
-          # Build --tag flags from metadata-action output
-          TAGS=$(jq -cr '.tags | map("-t " + .) | join(" ")' <<< '${{ steps.meta.outputs.json }}')
+          IMAGE=$(echo "${{ steps.meta.outputs.tags }}" | head -1)
+          docker rm -f nc-ci 2>/dev/null || true
+          docker run -d --name nc-ci \
+            -e DATABASE_URL=sqlite:////tmp/test.db \
+            -e NETWORK_INTERFACE=lo \
+            "$IMAGE"
+          for i in $(seq 1 30); do
+            docker exec nc-ci curl -sf http://localhost:8000/health \
+              2>/dev/null && echo "Health OK" && break
+            if [ "$i" -eq 30 ]; then
+              docker logs nc-ci
+              docker rm -f nc-ci
+              exit 1
+            fi
+            sleep 1
+          done
+          docker rm -f nc-ci
 
-          # Build digest references: IMAGE@sha256:<hex>
-          DIGESTS=$(printf '${{ env.IMAGE }}@sha256:%s ' *)
-
-          # shellcheck disable=SC2086  # TAGS and DIGESTS are intentionally word-split
-          docker buildx imagetools create $TAGS $DIGESTS
-
-      # ── Inspect the resulting manifest (informational) ────────────────────────
-      - name: Inspect manifest
-        run: docker buildx imagetools inspect ${{ env.IMAGE }}:latest
-
-      # ── Update Docker Hub repo description ────────────────────────────────────
-      - name: Update Docker Hub description
-        if: github.ref == 'refs/heads/main'
-        continue-on-error: true   # non-fatal: token scope issues won't fail the build
-        uses: peter-evans/dockerhub-description@v4
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: ${{ env.IMAGE }}
-          short-description: "LAN security posture scanner for home lab operators"
-          readme-filepath: ./README.md
+      - name: Prune dangling images
+        if: success()
+        run: docker image prune -f

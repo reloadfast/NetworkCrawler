@@ -24,9 +24,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # actions/setup-python downloads from github.com and fails on the
-      # self-hosted runner. Install 3.11 via apt and create a venv instead.
-      # python3.11 is available in the default Ubuntu 22.04 apt repos.
+      # actions/setup-python tries to download Python tarballs from an external
+      # CDN unreachable from the self-hosted runner. Install 3.11 via apt and
+      # create a venv instead. python3.11 is in the Ubuntu 22.04 default repos.
       - name: Set up Python 3.11
         run: |
           apt-get update -qq
