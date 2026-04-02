@@ -286,7 +286,27 @@ class TestRunNmapScan:
 
         cmd = mock_run.call_args[0][0]
         assert "-O" not in cmd
-        assert "-sV" in cmd
+
+    @pytest.mark.unit
+    def test_does_not_use_sV_flag(self):
+        """-sV (service version detection) must not appear in the nmap command.
+
+        nmap -sV actively TCP-connects to every open port — including SSH — to
+        grab service banners.  This triggers sshd srclimit_penalise on each scan
+        cycle.  HTTP banners are fetched separately via service_probe instead.
+        """
+        fixture_xml = _fixture("nmap_two_hosts.xml")
+
+        def fake_run(cmd, **kwargs):
+            idx = cmd.index("-oX")
+            Path(cmd[idx + 1]).write_text(fixture_xml)
+            return MagicMock(returncode=0, stdout="", stderr="")
+
+        with patch("app.scanner.nmap_scan.subprocess.run", side_effect=fake_run) as mock_run:
+            run_nmap_scan(hosts=["192.168.1.1"], interface="eth0")
+
+        cmd = mock_run.call_args[0][0]
+        assert "-sV" not in cmd
 
     @pytest.mark.unit
     def test_returns_empty_list_for_empty_hosts(self):
@@ -526,3 +546,164 @@ def test_orchestrate_scan_accepts_valid_cidr(monkeypatch):
     with patch("app.scanner.run_arp_scan", return_value=[]):
         result = orchestrate_scan(subnet="10.0.0.0/24")
     assert result.hosts == []
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# service_probe — unit tests
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestServiceProbe:
+    """probe_http_banners() and helpers — mocked urllib; no real network."""
+
+    @pytest.mark.unit
+    def test_populates_version_banner_for_http_port(self):
+        from unittest.mock import MagicMock, patch
+
+        from app.scanner.nmap_scan import NmapHost, PortInfo
+        from app.scanner.service_probe import probe_http_banners
+
+        host = NmapHost(
+            ip="192.168.1.1",
+            ports=[PortInfo(port_number=80, protocol="tcp", state="open", service_name="http")],
+        )
+
+        mock_resp = MagicMock()
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        mock_resp.headers.get = lambda key, default="": "Apache/2.4.51 (Debian)"
+
+        with patch("app.scanner.service_probe.urllib.request.urlopen", return_value=mock_resp):
+            probe_http_banners([host])
+
+        assert host.ports[0].version_banner == "Apache/2.4.51 (Debian)"
+
+    @pytest.mark.unit
+    def test_skips_port_with_existing_banner(self):
+        from unittest.mock import patch
+
+        from app.scanner.nmap_scan import NmapHost, PortInfo
+        from app.scanner.service_probe import probe_http_banners
+
+        host = NmapHost(
+            ip="192.168.1.1",
+            ports=[
+                PortInfo(
+                    port_number=80,
+                    protocol="tcp",
+                    state="open",
+                    service_name="http",
+                    version_banner="already set",
+                )
+            ],
+        )
+
+        with patch("app.scanner.service_probe.urllib.request.urlopen") as mock_open:
+            probe_http_banners([host])
+
+        mock_open.assert_not_called()
+        assert host.ports[0].version_banner == "already set"
+
+    @pytest.mark.unit
+    def test_silently_ignores_connection_error(self):
+        from unittest.mock import patch
+
+        from app.scanner.nmap_scan import NmapHost, PortInfo
+        from app.scanner.service_probe import probe_http_banners
+
+        host = NmapHost(
+            ip="192.168.1.99",
+            ports=[PortInfo(port_number=80, protocol="tcp", state="open", service_name="http")],
+        )
+
+        with patch(
+            "app.scanner.service_probe.urllib.request.urlopen",
+            side_effect=OSError("connection refused"),
+        ):
+            probe_http_banners([host])
+
+        assert host.ports[0].version_banner == ""
+
+    @pytest.mark.unit
+    def test_non_web_port_not_probed(self):
+        from unittest.mock import patch
+
+        from app.scanner.nmap_scan import NmapHost, PortInfo
+        from app.scanner.service_probe import probe_http_banners
+
+        host = NmapHost(
+            ip="192.168.1.1",
+            ports=[PortInfo(port_number=22, protocol="tcp", state="open", service_name="ssh")],
+        )
+
+        with patch("app.scanner.service_probe.urllib.request.urlopen") as mock_open:
+            probe_http_banners([host])
+
+        mock_open.assert_not_called()
+        assert host.ports[0].version_banner == ""
+
+    @pytest.mark.unit
+    def test_https_port_uses_ssl_context(self):
+        from unittest.mock import MagicMock, call, patch
+
+        from app.scanner.nmap_scan import NmapHost, PortInfo
+        from app.scanner.service_probe import probe_http_banners
+
+        host = NmapHost(
+            ip="192.168.1.1",
+            ports=[PortInfo(port_number=443, protocol="tcp", state="open", service_name="https")],
+        )
+
+        mock_resp = MagicMock()
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        mock_resp.headers.get = lambda key, default="": "nginx"
+
+        with patch("app.scanner.service_probe.urllib.request.urlopen", return_value=mock_resp) as mock_open:
+            probe_http_banners([host])
+
+        # urlopen must have been called with a context (ssl) kwarg
+        _, kwargs = mock_open.call_args
+        assert kwargs.get("context") is not None
+
+    @pytest.mark.unit
+    def test_empty_hosts_list_is_noop(self):
+        from unittest.mock import patch
+
+        from app.scanner.service_probe import probe_http_banners
+
+        with patch("app.scanner.service_probe.urllib.request.urlopen") as mock_open:
+            probe_http_banners([])
+
+        mock_open.assert_not_called()
+
+    @pytest.mark.unit
+    def test_pick_scheme_http_by_port(self):
+        from app.scanner.nmap_scan import PortInfo
+        from app.scanner.service_probe import _pick_scheme
+
+        assert _pick_scheme(PortInfo(port_number=80, protocol="tcp", state="open")) == "http"
+        assert _pick_scheme(PortInfo(port_number=8080, protocol="tcp", state="open")) == "http"
+
+    @pytest.mark.unit
+    def test_pick_scheme_https_by_port(self):
+        from app.scanner.nmap_scan import PortInfo
+        from app.scanner.service_probe import _pick_scheme
+
+        assert _pick_scheme(PortInfo(port_number=443, protocol="tcp", state="open")) == "https"
+        assert _pick_scheme(PortInfo(port_number=8443, protocol="tcp", state="open")) == "https"
+
+    @pytest.mark.unit
+    def test_pick_scheme_none_for_ssh(self):
+        from app.scanner.nmap_scan import PortInfo
+        from app.scanner.service_probe import _pick_scheme
+
+        assert _pick_scheme(PortInfo(port_number=22, protocol="tcp", state="open", service_name="ssh")) is None
+
+    @pytest.mark.unit
+    def test_pick_scheme_http_by_service_name(self):
+        from app.scanner.nmap_scan import PortInfo
+        from app.scanner.service_probe import _pick_scheme
+
+        assert _pick_scheme(PortInfo(port_number=9999, protocol="tcp", state="open", service_name="http")) == "http"
+        assert _pick_scheme(PortInfo(port_number=9999, protocol="tcp", state="open", service_name="http-alt")) == "http"

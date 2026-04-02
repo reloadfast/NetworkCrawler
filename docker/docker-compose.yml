@@ -12,18 +12,18 @@ version: "3.9"
 # │    The container still runs as uid 1000 (non-root, set in Dockerfile).       │
 # │                                                                              │
 # │  IMAGE                                                                       │
-# │    By default pulls talesofthemoon/networkcrawler:latest from Docker Hub.   │
+# │    Pulls from the Forgejo container registry by default.                    │
 # │    To build locally instead:                                                 │
 # │      docker compose -f docker/docker-compose.yml build                      │
-# │    or set IMAGE_TAG env var to a specific digest/sha tag.                   │
+# │    or set IMAGE_TAG env var to a specific sha tag (e.g. sha-abc1234).       │
 # └─────────────────────────────────────────────────────────────────────────────┘
 
 services:
   networkcrawler:
-    image: talesofthemoon/networkcrawler:${IMAGE_TAG:-latest}
+    image: forgejo.moseisley.es/wind/networkcrawler:${IMAGE_TAG:-latest}
     container_name: networkcrawler
 
-    # Uncomment the build block to build from source instead of pulling from Hub:
+    # Uncomment the build block to build from source instead of pulling from registry:
     # build:
     #   context: ..
     #   dockerfile: docker/Dockerfile
@@ -52,9 +52,8 @@ services:
 
     # Healthcheck mirrors the Dockerfile HEALTHCHECK (Compose honours it too)
     healthcheck:
-      test: ["CMD", "python", "-c",
-             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      interval: 30s
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
+      interval: 60s
       timeout: 5s
       retries: 3
       start_period: 15s
