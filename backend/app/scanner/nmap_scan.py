@@ -47,7 +47,16 @@ def run_nmap_scan(
     interface: str | None = None,
 ) -> list[NmapHost]:
     """
-    Run nmap -sV -O --top-ports 1000 -oX against *hosts* and return parsed results.
+    Run nmap --top-ports 1000 -oX against *hosts* and return parsed results.
+
+    -sV (service version detection) is intentionally omitted: it makes active
+    TCP connections to every open port — including SSH — to grab banners, which
+    triggers sshd's srclimit_penalise on each scan cycle.  HTTP/HTTPS banners
+    are fetched separately via service_probe.probe_http_banners() using urllib.
+
+    -O (OS detection) is also omitted: nmap hard-codes geteuid()==0 for OS
+    fingerprinting regardless of file capabilities, so it always quits when
+    running as non-root uid 1000.
 
     Uses a temporary file for XML output so the subprocess and parser are
     independently testable.  Raises RuntimeError on non-zero exit.
@@ -64,10 +73,6 @@ def run_nmap_scan(
     try:
         cmd = [
             "nmap",
-            "-sV",  # service/version detection
-            # -O (OS detection) intentionally omitted: nmap hard-codes geteuid()==0
-            # for OS fingerprinting regardless of file capabilities, so it always
-            # quits when running as non-root uid 1000.  os_guess will be empty.
             "--host-timeout",
             host_timeout,
             "--top-ports",

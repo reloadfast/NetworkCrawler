@@ -68,7 +68,9 @@ def init_db() -> None:
         db_path = Path(_db_url[len("sqlite:///") :])
         db_path.parent.mkdir(parents=True, exist_ok=True)
 
-    from app.models import device as _device  # noqa: F401 -- side-effect import registers ORM tables
+    from app.models import (
+        device as _device,  # noqa: F401 -- side-effect import registers ORM tables
+    )
     from app.models import (
         recommendation as _recommendation,  # noqa: F401 -- side-effect import registers ORM tables
     )
@@ -148,12 +150,7 @@ def upsert_device(
         device = session.execute(
             select(Device).where(Device.ip_address == ip_address)
         ).scalar_one_or_none()
-        if device is not None:
-            logger.error(
-                f"Attempted to create a new device with IP {ip_address}, "
-                f"but IP already exists for device with ID {device.id}. Skipping update."
-            )
-            return device
+        # device may still be None here — the create section handles that case
 
     # --- Create ---
     if device is None:

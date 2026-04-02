@@ -1,0 +1,95 @@
+name: Docker — Build & Push
+
+# Triggers:
+#   • Push to main → build, push :latest + :sha-XXXXXXX, smoke test
+#   • Pull request → build only (no push) for image validation
+#
+# Registry: forgejo.moseisley.es (Forgejo container registry)
+# Secret required: FORGEJO_TOKEN — Forgejo PAT with package + repo scopes
+#   Create at: Forgejo → Settings → Applications → Generate Token
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE: forgejo.moseisley.es/wind/networkcrawler
+  REGISTRY: forgejo.moseisley.es
+
+jobs:
+  build:
+    name: Build & Push
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Forgejo registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.FORGEJO_TOKEN }}
+
+      - name: Get short SHA
+        id: sha
+        run: echo "short=$(echo ${{ github.sha }} | head -c7)" >> $GITHUB_OUTPUT
+
+      - name: Generate Docker image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          labels: |
+            org.opencontainers.image.title=NetworkCrawler
+            org.opencontainers.image.description=LAN security posture scanner for home lab operators
+            org.opencontainers.image.licenses=MIT
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,prefix=sha-,format=short
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: APP_VERSION=${{ steps.sha.outputs.short }}
+
+      - name: Smoke test
+        if: github.event_name != 'pull_request'
+        run: |
+          IMAGE=$(echo "${{ steps.meta.outputs.tags }}" | head -1)
+          docker rm -f nc-ci 2>/dev/null || true
+          docker run -d --name nc-ci \
+            -e DATABASE_URL=sqlite:////tmp/test.db \
+            -e NETWORK_INTERFACE=lo \
+            "$IMAGE"
+          for i in $(seq 1 30); do
+            docker exec nc-ci curl -sf http://localhost:8000/health \
+              2>/dev/null && echo "Health OK" && break
+            if [ "$i" -eq 30 ]; then
+              docker logs nc-ci
+              docker rm -f nc-ci
+              exit 1
+            fi
+            sleep 1
+          done
+          docker rm -f nc-ci
+
+      - name: Prune dangling images
+        if: success()
+        run: docker image prune -f

@@ -30,19 +30,20 @@ FROM python:3.11-slim AS production
 
 LABEL org.opencontainers.image.title="NetworkCrawler" \
       org.opencontainers.image.description="LAN security posture scanner for home lab operators" \
-      org.opencontainers.image.source="https://github.com/reloadfast/NetworkCrawler" \
-      org.opencontainers.image.url="https://hub.docker.com/r/talesofthemoon/networkcrawler" \
-      org.opencontainers.image.vendor="talesofthemoon" \
+      org.opencontainers.image.source="https://forgejo.moseisley.es/Wind/NetworkCrawler" \
       org.opencontainers.image.licenses="MIT"
 
 # Install system-level scanning tools + libcap2-bin for setcap + gosu for
 # privilege dropping in the entrypoint (fixes volume ownership on upgrade).
+# curl is included for the HEALTHCHECK (lightweight; avoids spawning a Python
+# interpreter every 60 s).
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         nmap \
         arp-scan \
         libcap2-bin \
         gosu \
+        curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Grant cap_net_raw to the scanner binaries so they can open raw sockets when
@@ -90,9 +91,9 @@ RUN chmod +x /entrypoint.sh
 # FastAPI listens on 8000; the host-network container is accessible on <host-ip>:8000
 EXPOSE 8000
 
-# Healthcheck — lightweight; used by Docker and Compose
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+# Healthcheck — curl exits in ~5 ms; avoids spawning a Python interpreter every interval
+HEALTHCHECK --interval=60s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl -sf http://localhost:8000/health > /dev/null || exit 1
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", \

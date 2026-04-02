@@ -16,6 +16,7 @@ from app.scanner.arp_scan import ArpHost, run_arp_scan
 from app.scanner.dns_lookup import resolve_hostnames
 from app.scanner.nmap_scan import NmapHost, run_nmap_scan
 from app.scanner.os_inference import enrich_os_guesses
+from app.scanner.service_probe import probe_http_banners
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,10 @@ def orchestrate_scan(
 
     # Hostname fallback: reverse DNS for hosts nmap couldn't name
     resolve_hostnames(nmap_hosts)
+
+    # Fetch HTTP Server headers for web ports — lightweight alternative to nmap -sV
+    # that avoids the noisy SSH banner-grab connections on port 22.
+    probe_http_banners(nmap_hosts)
 
     # Passive OS inference from service/version banners
     enrich_os_guesses(nmap_hosts)

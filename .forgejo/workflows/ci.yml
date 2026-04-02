@@ -24,11 +24,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-          cache-dependency-path: backend/requirements.txt
+      # actions/setup-python tries to download Python tarballs from an external
+      # CDN unreachable from the self-hosted runner. Install 3.11 via apt and
+      # create a venv instead. python3.11 is in the Ubuntu 22.04 default repos.
+      - name: Set up Python 3.11
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends python3.11 python3.11-venv
+          python3.11 -m venv /opt/venv
+          echo "/opt/venv/bin" >> $GITHUB_PATH
 
       - name: Install dependencies
         run: pip install -r requirements.txt
