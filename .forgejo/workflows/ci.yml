@@ -24,12 +24,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-          cache-dependency-path: backend/requirements.txt
-
+      # actions/setup-python downloads from github.com/actions/python-versions
+      # which is unreachable from the self-hosted runner. Use the system Python
+      # that ships with the runner image instead.
       - name: Install dependencies
         run: pip install -r requirements.txt
 
