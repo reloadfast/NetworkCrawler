@@ -73,7 +73,7 @@ def _fetch_server_header(scheme: str, ip: str, port: int) -> str:
     try:
         req = urllib.request.Request(url, method="HEAD")  # noqa: S310 — LAN IPs only; SSRF not a concern in a local network scanner
         ctx = _ssl_no_verify_context() if scheme == "https" else None
-        with urllib.request.urlopen(req, timeout=_PROBE_TIMEOUT, context=ctx) as resp:  # noqa: S310
+        with urllib.request.urlopen(req, timeout=_PROBE_TIMEOUT, context=ctx) as resp:  # noqa: S310 -- LAN IPs only; scheme is always http or https, never file or custom
             return resp.headers.get("Server", "")
     except Exception:  # noqa: BLE001 — connection refused, timeout, redirect loops, etc.
         return ""
