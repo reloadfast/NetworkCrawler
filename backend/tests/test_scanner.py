@@ -288,7 +288,7 @@ class TestRunNmapScan:
         assert "-O" not in cmd
 
     @pytest.mark.unit
-    def test_does_not_use_sV_flag(self):
+    def test_does_not_use_sv_flag(self):  # noqa: N802 — sV is a real nmap flag name; lowercasing it to sv is less clear
         """-sV (service version detection) must not appear in the nmap command.
 
         nmap -sV actively TCP-connects to every open port — including SSH — to
@@ -644,7 +644,7 @@ class TestServiceProbe:
 
     @pytest.mark.unit
     def test_https_port_uses_ssl_context(self):
-        from unittest.mock import MagicMock, call, patch
+        from unittest.mock import MagicMock, patch
 
         from app.scanner.nmap_scan import NmapHost, PortInfo
         from app.scanner.service_probe import probe_http_banners
@@ -659,7 +659,9 @@ class TestServiceProbe:
         mock_resp.__exit__ = MagicMock(return_value=False)
         mock_resp.headers.get = lambda key, default="": "nginx"
 
-        with patch("app.scanner.service_probe.urllib.request.urlopen", return_value=mock_resp) as mock_open:
+        with patch(
+            "app.scanner.service_probe.urllib.request.urlopen", return_value=mock_resp
+        ) as mock_open:
             probe_http_banners([host])
 
         # urlopen must have been called with a context (ssl) kwarg
@@ -698,12 +700,15 @@ class TestServiceProbe:
         from app.scanner.nmap_scan import PortInfo
         from app.scanner.service_probe import _pick_scheme
 
-        assert _pick_scheme(PortInfo(port_number=22, protocol="tcp", state="open", service_name="ssh")) is None
+        port = PortInfo(port_number=22, protocol="tcp", state="open", service_name="ssh")
+        assert _pick_scheme(port) is None
 
     @pytest.mark.unit
     def test_pick_scheme_http_by_service_name(self):
         from app.scanner.nmap_scan import PortInfo
         from app.scanner.service_probe import _pick_scheme
 
-        assert _pick_scheme(PortInfo(port_number=9999, protocol="tcp", state="open", service_name="http")) == "http"
-        assert _pick_scheme(PortInfo(port_number=9999, protocol="tcp", state="open", service_name="http-alt")) == "http"
+        http_port = PortInfo(port_number=9999, protocol="tcp", state="open", service_name="http")
+        alt_port = PortInfo(port_number=9999, protocol="tcp", state="open", service_name="http-alt")
+        assert _pick_scheme(http_port) == "http"
+        assert _pick_scheme(alt_port) == "http"

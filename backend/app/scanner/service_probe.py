@@ -71,9 +71,9 @@ def _fetch_server_header(scheme: str, ip: str, port: int) -> str:
     """Return the Server response header value, or '' on any network error."""
     url = f"{scheme}://{ip}:{port}/"
     try:
-        req = urllib.request.Request(url, method="HEAD")
+        req = urllib.request.Request(url, method="HEAD")  # noqa: S310 — LAN IPs only; SSRF not a concern in a local network scanner
         ctx = _ssl_no_verify_context() if scheme == "https" else None
-        with urllib.request.urlopen(req, timeout=_PROBE_TIMEOUT, context=ctx) as resp:  # noqa: S310 — LAN IPs only; SSRF not a concern in a local network scanner
+        with urllib.request.urlopen(req, timeout=_PROBE_TIMEOUT, context=ctx) as resp:  # noqa: S310
             return resp.headers.get("Server", "")
     except Exception:  # noqa: BLE001 — connection refused, timeout, redirect loops, etc.
         return ""

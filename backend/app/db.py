@@ -68,7 +68,9 @@ def init_db() -> None:
         db_path = Path(_db_url[len("sqlite:///") :])
         db_path.parent.mkdir(parents=True, exist_ok=True)
 
-    from app.models import device as _device  # noqa: F401 -- side-effect import registers ORM tables
+    from app.models import (
+        device as _device,  # noqa: F401 -- side-effect import registers ORM tables
+    )
     from app.models import (
         recommendation as _recommendation,  # noqa: F401 -- side-effect import registers ORM tables
     )
