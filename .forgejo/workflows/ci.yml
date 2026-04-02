@@ -24,9 +24,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # actions/setup-python downloads from github.com/actions/python-versions
-      # which is unreachable from the self-hosted runner. Use the system Python
-      # that ships with the runner image instead.
+      # actions/setup-python downloads from github.com and fails on the
+      # self-hosted runner. Install 3.11 via apt and create a venv instead.
+      # python3.11 is available in the default Ubuntu 22.04 apt repos.
+      - name: Set up Python 3.11
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends python3.11 python3.11-venv
+          python3.11 -m venv /opt/venv
+          echo "/opt/venv/bin" >> $GITHUB_PATH
+
       - name: Install dependencies
         run: pip install -r requirements.txt
 
