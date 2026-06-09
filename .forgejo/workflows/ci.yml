@@ -46,10 +46,9 @@ jobs:
       - name: Check for bare noqa (without justification comment)
         # Allow:  # noqa: E501 — reason   or   # noqa: E501 -- reason   or   # noqa: E501 # reason
         # Deny:   # noqa   or   # noqa: E501   (rule code but no explanation)
-        # Uses grep -E and locale-safe pattern: requires at least one non-space char
-        # after the rule code(s) and a separating space.
+        # Exclude .venv/ (third-party deps) from the check.
         run: |
-          if LC_ALL=en_US.UTF-8 grep -rn --include="*.py" '# noqa' . \
+          if LC_ALL=en_US.UTF-8 grep -rn --include="*.py" --exclude-dir=.venv '# noqa' . \
              | LC_ALL=en_US.UTF-8 grep -Ev '# noqa.*:[^#]+ [^[:space:]]'; then
             echo "ERROR: bare '# noqa' found without inline justification comment."
             exit 1

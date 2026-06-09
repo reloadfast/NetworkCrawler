@@ -8,7 +8,7 @@ echo "=== Pre-push checks ==="
 # 0. Check for bare noqa (inline justification required)
 #    Allow: # noqa: E501 — reason  or  # noqa: E501 -- reason  or  # noqa: E501 # reason
 #    Deny:   # noqa   or   # noqa: E501   (rule code but no explanation)
-if LC_ALL=en_US.UTF-8 grep -rn --include="*.py" '# noqa' backend/ \
+if LC_ALL=en_US.UTF-8 grep -rn --include="*.py" --exclude-dir=.venv '# noqa' backend/ \
    | LC_ALL=en_US.UTF-8 grep -Ev '# noqa.*:[^#]+ [^[:space:]]'; then
   echo "ERROR: bare '# noqa' found without inline justification comment."
   echo "All noqa comments must include a reason, e.g.:'# noqa: F401 — reason'"
