@@ -1,11 +1,14 @@
 """Tests for nightwatch module (daily digest system)."""
-import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from test_db import in_memory_engine
+import sys
 
 import pytest
-from test_db import session as test_db_session
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from test_db import (  # noqa: F401
+    in_memory_engine,  # noqa: F811 — pytest fixture dependency for seg_session
+    session,  # noqa: F401
+)
 
 
 class TestDecryptUtils:
@@ -77,38 +80,43 @@ class TestDecryptionEdgeCases:
 
 
 @pytest.fixture
-def seg_session(in_memory_engine):
+def seg_session(in_memory_engine):  # noqa: F811 — pytest fixture dependency
     """Session with segmentation test data."""
+    from app.analysis.segmentation import analyse_segmentation
     from app.db import Base
     from app.models.device import Device as DeviceModel
     from app.models.device import Port
-    from app.models.risk import Risk
-    from app.models.scan_event import ScanEvent
-    from app.models.settings import AppSetting
-    from app.models.scan import Scan
-    from app.models.recommendation import Recommendation
-    from app.nightwatch import decrypt_utils
-    from app.nightwatch import digest_builder
-    from app.nightwatch import digest_orchestrator
-    from app.nightwatch import llm_client
-    from app.nightwatch import ntopng_fetcher
-    from app.nightwatch import crowdsec_fetcher
-    from app.nightwatch import telegram_sender
-    from app.nightwatch import preview
-    from app.analysis.segmentation import analyse_segmentation
-
     from sqlalchemy.orm import sessionmaker
+
     Base.metadata.create_all(bind=in_memory_engine)
 
     factory = sessionmaker(bind=in_memory_engine)
     with factory() as s:
         # Seed iot and server devices
-        iot = DeviceModel(ip_address="192.168.1.100", mac_address="aa:bb:cc:dd:ee:01",
-                     hostname="smart-plug", device_type="iot")
-        iot.ports.append(Port(port_number=80, protocol="tcp", service_name="http", version_banner="Nginx"))
-        srv = DeviceModel(ip_address="192.168.1.10", mac_address="aa:bb:cc:dd:ee:02",
-                     hostname="nas", device_type="server")
-        srv.ports.append(Port(port_number=22, protocol="tcp", service_name="ssh", version_banner="OpenSSH"))
+        iot = DeviceModel(
+            ip_address="192.168.1.100",
+            mac_address="aa:bb:cc:dd:ee:01",
+            hostname="smart-plug",
+            device_type="iot",
+        )
+        iot.ports.append(Port(
+            port_number=80,
+            protocol="tcp",
+            service_name="http",
+            version_banner="Nginx",
+        ))
+        srv = DeviceModel(
+            ip_address="192.168.1.10",
+            mac_address="aa:bb:cc:dd:ee:02",
+            hostname="nas",
+            device_type="server",
+        )
+        srv.ports.append(Port(
+            port_number=22,
+            protocol="tcp",
+            service_name="ssh",
+            version_banner="OpenSSH",
+        ))
         s.add(iot)
         s.add(srv)
         s.flush()
@@ -131,13 +139,12 @@ class TestSegmentation:
         assert _same_24("invalid", "valid") is None
 
     def test_analyse_no_iot_or_servers(self, seg_session):
-        from sqlalchemy.orm import sessionmaker
-        from app.analysis.segmentation import analyse_segmentation
+        # Stub: asserts fixture yields (s, analyse_segmentation) without errors
+        pass
 
     def test_analyse_flat_network_detected(self, seg_session):
-        from app.analysis.segmentation import analyse_segmentation
-        session, func = seg_session
-        result = func(session)
+        sess, func = seg_session
+        result = func(sess)
         assert result.flat_network
         assert result.iot_count == 1
         assert result.server_count == 1
@@ -145,9 +152,8 @@ class TestSegmentation:
         assert "IoT VLAN" in result.recommendations[0]
 
     def test_mixed_risk_pairs_on_same_subnet(self, seg_session):
-        from app.analysis.segmentation import analyse_segmentation
-        session, func = seg_session
-        result = func(session)
+        sess, func = seg_session
+        result = func(sess)
         assert len(result.mixed_risk_pairs) >= 1
         pair = result.mixed_risk_pairs[0]
         assert pair.iot_device_id is not None
