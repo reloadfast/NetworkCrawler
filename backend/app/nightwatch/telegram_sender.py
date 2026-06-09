@@ -22,32 +22,32 @@ def send_digest(
     message: str,
 ) -> bool:
     """Send a digest message to Telegram.
-    
+
     Splits long messages (>4096 char) into connected messages.
-    
+
     Args:
         bot_token: Telegram bot token.
         chat_id: Destination chat/group ID.
         message: Message text (may be >4096 chars, will be split).
-        
+
     Returns:
         True if message(s) sent successfully, False otherwise.
     """
     chunks = _split_message_for_telegram(message)
-    
+
     payload = {
         "chat_id": chat_id,
         "text": chunks[0],
         "parse_mode": "MarkdownV2",
     }
-    
+
     url = f"{_TELEGRAM_API}{bot_token}/sendMessage"
     headers = {"Content-Type": "application/json"}
-    
+
     for idx, chunk in enumerate(chunks):
         if idx > 0:
             payload["text"] = chunk
-        
+
         try:
             r = httpx.post(url, json=payload, headers=headers, timeout=10)
             r.raise_for_status()
@@ -55,7 +55,7 @@ def send_digest(
         except Exception as exc:  # noqa: BLE001
             logger.warning("Failed to send Telegram message: %s", exc)
             return False
-    
+
     return False
 
 
@@ -65,12 +65,12 @@ def send_error(
     error_message: str,
 ) -> bool:
     """Send an error alert to Telegram.
-    
+
     Args:
         bot_token: Telegram bot token.
         chat_id: Destination chat/group ID.
         error_message: Error message text.
-        
+
     Returns:
         True if sent successfully, False otherwise.
     """
@@ -79,10 +79,10 @@ def send_error(
         "text": f"*Nightwatch Error*\n\n{error_message}",
         "parse_mode": "MarkdownV2",
     }
-    
+
     url = f"{_TELEGRAM_API}{bot_token}/sendMessage"
     headers = {"Content-Type": "application/json"}
-    
+
     try:
         r = httpx.post(url, json=payload, headers=headers, timeout=10)
         r.raise_for_status()
@@ -94,13 +94,13 @@ def send_error(
 
 def _split_message_for_telegram(text: str, chunk_size: int = _MAX_MSG_LENGTH) -> list[str]:
     """Split a message into Telegram-compatible chunks.
-    
+
     Splits at newline boundaries to preserve formatting.
-    
+
     Args:
         text: Input text to split.
         chunk_size: Maximum chunk size (default 4096).
-        
+
     Returns:
         List of text chunks.
     """

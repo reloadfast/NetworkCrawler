@@ -6,9 +6,7 @@ pipeline and returns the text without sending to Telegram.
 
 from __future__ import annotations
 
-import json
 import logging
-from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -22,11 +20,11 @@ preview_router = APIRouter(prefix="/api/nightwatch", tags=["nightwatch"])
 
 
 @preview_router.get("/preview")
-async def get_nightwatch_preview(db: Session = Depends(get_db)):
+async def get_nightwatch_preview(db: Session = Depends(get_db)):  # noqa: B008
     """Run a preview of the Nightwatch digest without sending to Telegram.
-    
+
     Useful for testing the digest text and LLM response before enabling delivery.
-    
+
     Returns:
         Dict with preview text, findings count, actions count, and any error.
     """
@@ -34,4 +32,4 @@ async def get_nightwatch_preview(db: Session = Depends(get_db)):
         result = await digest_orchestrator.run_digest(db, preview=True)
         return result
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=str(exc)) from None

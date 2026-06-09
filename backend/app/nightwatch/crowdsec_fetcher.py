@@ -20,12 +20,12 @@ async def fetch_alerts(
     limit: int = 100,
 ) -> list[dict[str, Any]]:
     """Fetch active alerts from CrowdSec API.
-    
+
     Args:
         base_url: CrowdSec API base URL (e.g. 'http://192.168.1.110:8082').
         api_key: Bearer token from bouncer API key.
         limit: Maximum number of alerts to fetch.
-        
+
     Returns:
         List of alert dicts with source IP, reason, duration, etc.
     """
@@ -35,7 +35,7 @@ async def fetch_alerts(
         "Accept": "application/json",
     }
     params = {"limit": limit}
-    
+
     try:
         r = httpx.get(url, headers=headers, params=params, timeout=30)
         r.raise_for_status()
@@ -47,21 +47,23 @@ async def fetch_alerts(
             alerts = data
         else:
             alerts = [data]
-        
+
         # Normalize to consistent format
         records = []
         for alert in alerts:
             if isinstance(alert, dict):
-                records.append({
-                    "instance": alert.get("instance", ""),
-                    "scheme": alert.get("scheme", "unknown"),
-                    "leisure": alert.get("leisure", 0),
-                    "ip": alert.get("ip", alert.get("source", {}).get("address", "")),
-                    "reason": alert.get("reason", alert.get("scenario", "")),
-                    "expire": alert.get("expire", ""),
-                    "score": alert.get("score", 0),
-                    "events": alert.get("events", 0),
-                })
+                records.append(
+                    {
+                        "instance": alert.get("instance", ""),
+                        "scheme": alert.get("scheme", "unknown"),
+                        "leisure": alert.get("leisure", 0),
+                        "ip": alert.get("ip", alert.get("source", {}).get("address", "")),
+                        "reason": alert.get("reason", alert.get("scenario", "")),
+                        "expire": alert.get("expire", ""),
+                        "score": alert.get("score", 0),
+                        "events": alert.get("events", 0),
+                    }
+                )
         return records
     except Exception as exc:  # noqa: BLE001 — best-effort for notification
         logger.warning("Failed to fetch CrowdSec alerts: %s", exc)
@@ -74,12 +76,12 @@ async def fetch_journal(
     days: int = 1,
 ) -> list[dict[str, Any]]:
     """Fetch recent events from CrowdSec journal.
-    
+
     Args:
         base_url: CrowdSec API base URL.
         api_key: Bearer token from bouncer API key.
         days: Number of recent days to fetch (defaults to 1).
-        
+
     Returns:
         list of event dicts with timestamp, source, action, etc.
     """
@@ -88,12 +90,12 @@ async def fetch_journal(
         "Authorization": f"Bearer {api_key}",
         "Accept": "application/json",
     }
-    
+
     try:
         r = httpx.get(url, headers=headers, timeout=30)
         r.raise_for_status()
         data = r.json()
-        
+
         events = []
         if isinstance(data, dict):
             raw_events = data.get("records", data.get("events", data))
@@ -101,18 +103,21 @@ async def fetch_journal(
             raw_events = data
         else:
             raw_events = [data]
-        
+
         for event in raw_events:
             if isinstance(event, dict):
-                events.append({
-                    "scenario": event.get("scenario", event.get("id", "")),
-                    "timestamp": event.get("timestamp", event.get("created", "")),
-                    "processes": event.get("processes", []),
-                    "rules": event.get("rules", []),
-                })
-        
+                events.append(
+                    {
+                        "scenario": event.get("scenario", event.get("id", "")),
+                        "timestamp": event.get("timestamp", event.get("created", "")),
+                        "processes": event.get("processes", []),
+                        "rules": event.get("rules", []),
+                    }
+                )
+
         # Filter to last N days
         from datetime import datetime, timedelta
+
         cutoff = datetime.now() - timedelta(days=days)
         recent = []
         for event in events:
@@ -126,7 +131,7 @@ async def fetch_journal(
                     recent.append(event)  # include if timestamp parse fails
             else:
                 recent.append(event)
-        
+
         return recent
     except Exception as exc:  # noqa: BLE001 — best-effort for notification
         logger.warning("Failed to fetch CrowdSec journal: %s", exc)
@@ -138,21 +143,21 @@ async def fetch_all_data(
     api_key: str,
 ) -> dict[str, Any]:
     """Fetch all CrowdSec data used for digest.
-    
+
     Args:
         crowdsec_url: CrowdSec API base URL.
         api_key: Bearer token from bouncer API key.
-        
+
     Returns:
         dict with alerts, journal, and summary stats.
     """
     import asyncio
-    
+
     alerts, journal = await asyncio.gather(
         fetch_alerts(crowdsec_url, api_key),
         fetch_journal(crowdsec_url, api_key),
     )
-    
+
     # Compute summary
     ban_by_ip: dict[str, int] = {}
     ban_by_reason: dict[str, int] = {}
@@ -163,7 +168,7 @@ async def fetch_all_data(
             ban_by_ip[ip] = ban_by_ip.get("ip", 0) + 1
         if reason:
             ban_by_reason[reason] = ban_by_reason.get("reason", 0) + 1
-    
+
     return {
         "alerts": alerts,
         "journal": journal,

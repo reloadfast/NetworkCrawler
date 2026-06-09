@@ -14,9 +14,12 @@ from app.nightwatch import llm_client
 
 logger = logging.getLogger(__name__)
 
-_SYSTEM_PROMPT = """You are a home network security analyst reviewing a daily digest of LAN traffic and threat intelligence.
+_SYSTEM_PROMPT = """\
+You are a home network security analyst reviewing a daily digest
+of LAN traffic and threat intelligence.
 
-Your task is to analyze the provided data and return ONLY valid JSON with no explanation, markdown, or extra text.
+Your task is to analyze the provided data and return ONLY valid JSON
+with no explanation, markdown, or extra text.
 
 Output schema:
 {
@@ -50,12 +53,12 @@ Guidelines:
 
 def _format_data_for_prompt(ntopng_data: dict, crowdsec_data: dict, db) -> str:
     """Format all data sources into a single prompt payload string.
-    
+
     Args:
         ntopng_data: Data from ntopng_fetcher.fetch_all_data().
         crowdsec_data: Data from crowdsec_fetcher.fetch_all_data().
         db: SQLAlchemy session (for NetworkCrawler data).
-        
+
     Returns:
         Concatenated formatted string.
     """
@@ -102,7 +105,20 @@ def _format_data_for_prompt(ntopng_data: dict, crowdsec_data: dict, db) -> str:
         # compute if not pre-computed
         all_proto = ntopng_data.get("protocols", {})
         if isinstance(all_proto, dict):
-            common = {"TCP", "UDP", "HTTP", "HTTPS", "DNS", "ICMP", "TLS", "SSH", "SMB", "MQTT", "UPnP", "SNMP"}
+            common = {
+                "TCP",
+                "UDP",
+                "HTTP",
+                "HTTPS",
+                "DNS",
+                "ICMP",
+                "TLS",
+                "SSH",
+                "SMB",
+                "MQTT",
+                "UPnP",
+                "SNMP",
+            }
             unusual = {k: v for k, v in all_proto.items() if k.upper() not in common and v > 0}
             if unusual:
                 lines.append("- Unusual protocols detected:")
@@ -132,7 +148,9 @@ def _format_data_for_prompt(ntopng_data: dict, crowdsec_data: dict, db) -> str:
         lines.append(f"- Active threat alerts ({len(alerts)}):")
         for alert in alerts[:10]:
             ip = alert.get("ip", "unknown") if isinstance(alert, dict) else "unknown"
-            reason = alert.get("reason", "unspecified") if isinstance(alert, dict) else "unspecified"
+            reason = (
+                alert.get("reason", "unspecified") if isinstance(alert, dict) else "unspecified"
+            )
             lines.append(f"  - {ip}: {reason}")
 
     parts.append("\n".join(lines))
@@ -152,16 +170,17 @@ def _format_data_for_prompt(ntopng_data: dict, crowdsec_data: dict, db) -> str:
 
 def _get_networkcrawler_data(db) -> str | None:
     """Get NetworkCrawler scan data from database.
-    
+
     Args:
         db: SQLAlchemy session.
-        
+
     Returns:
         Formatted string or None if no database.
     """
     try:
-        from sqlalchemy.orm import Session
         from sqlalchemy import select
+        from sqlalchemy.orm import Session
+
         from app.models.risk import Risk
         from app.models.scan_event import ScanEvent
 
@@ -169,26 +188,33 @@ def _get_networkcrawler_data(db) -> str | None:
             return None
 
         # Active risks
-        risks = db.execute(
-            select(Risk).where(Risk.acknowledged_at.is_(None))
-        ).scalars().all()
+        risks = db.execute(select(Risk).where(Risk.acknowledged_at.is_(None))).scalars().all()
 
         if risks:
             counts = {}
             for risk in risks:
                 sev = risk.severity
                 counts[sev] = counts.get(sev, 0) + 1
-            sev_strs = [f"{s}: {counts[s]}" for s in ["critical", "high", "medium", "low"] if counts.get(s)]
+            sev_strs = [
+                f"{s}: {counts[s]}" for s in ["critical", "high", "medium", "low"] if counts.get(s)
+            ]
             return f"- Active risks: {', '.join(sev_strs)}"
         else:
             return "- Active risks: 0"
 
         # New devices
-        new_events = db.execute(
-            select(ScanEvent).where(
-                ScanEvent.event_type == "new_device",
-            ).order_by(ScanEvent.occurred_at.desc()).limit(5)
-        ).scalars().all()
+        new_events = (
+            db.execute(
+                select(ScanEvent)
+                .where(
+                    ScanEvent.event_type == "new_device",
+                )
+                .order_by(ScanEvent.occurred_at.desc())
+                .limit(5)
+            )
+            .scalars()
+            .all()
+        )
 
         if new_events:
             return f"- New devices: {len(new_events)}"
@@ -205,15 +231,15 @@ def call_llm(
     crowdsec_data: dict,
 ) -> dict[str, Any]:
     """Call LLM with compiled context and return parsed response.
-    
+
     Args:
         db: SQLAlchemy session.
         ntopng_data: ntopng data from fetcher.
         crowdsec_data: CrowdSec data from fetcher.
-        
+
     Returns:
         Dict with 'findings' and 'actions' arrays.
-        
+
     Raises:
         ValueError: If LLM call or JSON parse fails.
     """
@@ -231,7 +257,7 @@ def call_llm(
         raise ValueError("Nightwatch: LLM endpoint not configured")
 
     data_text = _format_data_for_prompt(ntopng_data, crowdsec_data, db)
-    
+
     user_prompt = (
         f"Here is the data for today's Nightwatch digest:\n\n"
         f"{data_text}\n\n"
@@ -268,18 +294,16 @@ def call_llm(
         return {"findings": [], "actions": []}
     except (json.JSONDecodeError, TypeError) as exc:
         logger.warning("LLM JSON parse failed: %s (raw: %s)", exc, result[:200])
-        raise ValueError(
-            f"Nightwatch: LLM returned non-JSON (or malformed JSON): {exc}"
-        ) from exc
+        raise ValueError(f"Nightwatch: LLM returned non-JSON (or malformed JSON): {exc}") from exc
 
 
 def format_findings_as_text(findings: list[dict], actions: list[dict]) -> str:
     """Format findings and actions into a readable Telegram message.
-    
+
     Args:
         findings: List of finding dicts.
         actions: List of action dicts.
-        
+
     Returns:
         Formatted string message ready for Telegram.
     """
@@ -324,8 +348,8 @@ def format_findings_as_text(findings: list[dict], actions: list[dict]) -> str:
         lines.append("")
 
     import datetime
+
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
     lines.append(f"_Generated at {timestamp}._")
 
     return "\n".join(lines)
-
