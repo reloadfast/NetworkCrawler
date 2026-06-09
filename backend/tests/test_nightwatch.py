@@ -1,4 +1,5 @@
 """Tests for nightwatch module (daily digest system)."""
+
 import os
 import sys
 
@@ -99,28 +100,33 @@ def seg_session(in_memory_engine):  # noqa: F811 — pytest fixture dependency
             hostname="smart-plug",
             device_type="iot",
         )
-        iot.ports.append(Port(
-            port_number=80,
-            protocol="tcp",
-            service_name="http",
-            version_banner="Nginx",
-        ))
+        iot.ports.append(
+            Port(
+                port_number=80,
+                protocol="tcp",
+                service_name="http",
+                version_banner="Nginx",
+            )
+        )
         srv = DeviceModel(
             ip_address="192.168.1.10",
             mac_address="aa:bb:cc:dd:ee:02",
             hostname="nas",
             device_type="server",
         )
-        srv.ports.append(Port(
-            port_number=22,
-            protocol="tcp",
-            service_name="ssh",
-            version_banner="OpenSSH",
-        ))
+        srv.ports.append(
+            Port(
+                port_number=22,
+                protocol="tcp",
+                service_name="ssh",
+                version_banner="OpenSSH",
+            )
+        )
         s.add(iot)
         s.add(srv)
         s.flush()
         yield s, analyse_segmentation
+
 
 @pytest.mark.integration
 class TestSegmentation:
@@ -128,14 +134,17 @@ class TestSegmentation:
 
     def test_same_24_no_match(self):
         from app.analysis.segmentation import _same_24
+
         assert _same_24("192.168.1.1", "192.168.2.1") is None
 
     def test_same_24_match(self):
         from app.analysis.segmentation import _same_24
+
         assert _same_24("192.168.1.1", "192.168.1.254") == "192.168.1.0/24"
 
     def test_same_24_invalid_ip(self):
         from app.analysis.segmentation import _same_24
+
         assert _same_24("invalid", "valid") is None
 
     def test_analyse_no_iot_or_servers(self, seg_session):
