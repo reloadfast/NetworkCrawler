@@ -6,9 +6,9 @@ import sys
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from test_db import (  # noqa: F401
+from test_db import (  # noqa: F401 — required for pytest fixture setup
     in_memory_engine,  # noqa: F811 — pytest fixture dependency for seg_session
-    session,  # noqa: F401
+    session,  # noqa: F401 — required for pytest monkeypatch
 )
 
 
