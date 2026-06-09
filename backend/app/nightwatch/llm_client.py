@@ -327,6 +327,6 @@ def list_models(db: Session) -> dict[str, Any]:
             models = sorted(m["id"] for m in data.get("data", []))
 
         return {"models": models}
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — best-effort notification, non-fatal
         logger.warning("Failed to list LLM models: %s", exc)
         return {"models": [], "error": str(exc)}

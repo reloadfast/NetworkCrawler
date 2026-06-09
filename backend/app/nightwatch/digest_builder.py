@@ -219,7 +219,7 @@ def _get_networkcrawler_data(db) -> str | None:
         if new_events:
             return f"- New devices: {len(new_events)}"
 
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001 — broad catch for best-effort digest generation
         return None
 
     return None

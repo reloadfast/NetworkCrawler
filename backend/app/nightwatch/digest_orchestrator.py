@@ -59,12 +59,12 @@ async def run_digest(db: Session, preview: bool = False) -> dict[str, Any]:
         ntopng_data = await ntopng_fetcher.fetch_all_data(
             ntopng_url, ntopng_username, ntopng_password
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — best-effort notification, non-fatal
         logger.warning("ntopng fetch failed: %s", exc)
 
     try:
         crowdsec_data = await crowdsec_fetcher.fetch_all_data(crowdsec_url, crowdsec_api_key)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — best-effort notification, non-fatal
         logger.warning("CrowdSec fetch failed: %s", exc)
 
     # Check if we have any useful data
@@ -96,7 +96,7 @@ async def run_digest(db: Session, preview: bool = False) -> dict[str, Any]:
             "text": f"LLM processing failed: {exc}",
             "error": "llm_error",
         }
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — best-effort notification, non-fatal
         logger.error("Unexpected error during LLM call: %s", exc)
         return {
             "success": False,
@@ -142,7 +142,7 @@ async def run_digest(db: Session, preview: bool = False) -> dict[str, Any]:
         else:
             logger.error("Failed to send digest to Telegram")
             raise ValueError("Nightwatch: Failed to send digest to Telegram")
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — best-effort notification, non-fatal
         logger.error("Telegram send failed: %s", exc)
         return {
             "success": False,

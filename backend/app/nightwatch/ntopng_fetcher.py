@@ -52,7 +52,7 @@ async def fetch_top_talkers(
             elif isinstance(props, str):
                 records.append({"device": props})
         return records
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — best-effort notification, non-fatal
         logger.warning("Failed to fetch ntopng topTalkers: %s", exc)
         return []
 
@@ -84,7 +84,7 @@ async def fetch_alerts(
             elif isinstance(props, str):
                 records.append({"alert": props})
         return records
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — best-effort notification, non-fatal
         logger.warning("Failed to fetch ntopng alerts: %s", exc)
         return []
 
@@ -119,7 +119,7 @@ async def fetch_protocol_stats(
             elif isinstance(props, (int, float)):
                 stats[proto] = int(props)
         return stats
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — best-effort notification, non-fatal
         logger.warning("Failed to fetch protocol stats: %s", exc)
         return {}
 
@@ -152,7 +152,7 @@ async def fetch_host_stats(
                 props["host"] = name
                 records.append(props)
         return records
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — best-effort notification, non-fatal
         logger.warning("Failed to fetch host stats: %s", exc)
         return []
 
@@ -190,7 +190,7 @@ async def fetch_flows(
             if isinstance(item, dict):
                 records.append(item)
         return records[:limit]
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — best-effort notification, non-fatal
         logger.warning("Failed to fetch flows: %s", exc)
         return []
 

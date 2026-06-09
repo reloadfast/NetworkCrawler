@@ -31,5 +31,5 @@ async def get_nightwatch_preview(db: Session = Depends(get_db)):  # noqa: B008
     try:
         result = await digest_orchestrator.run_digest(db, preview=True)
         return result
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — best-effort preview, non-fatal
         raise HTTPException(status_code=500, detail=str(exc)) from None

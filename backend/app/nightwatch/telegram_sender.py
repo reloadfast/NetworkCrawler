@@ -52,7 +52,7 @@ def send_digest(
             r = httpx.post(url, json=payload, headers=headers, timeout=10)
             r.raise_for_status()
             return True
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001 — best-effort notification, non-fatal
             logger.warning("Failed to send Telegram message: %s", exc)
             return False
 
@@ -87,7 +87,7 @@ def send_error(
         r = httpx.post(url, json=payload, headers=headers, timeout=10)
         r.raise_for_status()
         return True
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — best-effort notification, non-fatal
         logger.warning("Failed to send Telegram error message: %s", exc)
         return False
 
