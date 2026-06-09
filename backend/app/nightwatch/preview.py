@@ -20,7 +20,7 @@ preview_router = APIRouter(prefix="/api/nightwatch", tags=["nightwatch"])
 
 
 @preview_router.get("/preview")
-async def get_nightwatch_preview(db: Session = Depends(get_db)):  # noqa: B008
+async def get_nightwatch_preview(db: Session = Depends(get_db)):  # noqa: B008 — standard FastAPI dependency injection pattern
     """Run a preview of the Nightwatch digest without sending to Telegram.
 
     Useful for testing the digest text and LLM response before enabling delivery.
