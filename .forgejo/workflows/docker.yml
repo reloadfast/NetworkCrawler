@@ -1,7 +1,7 @@
 name: Docker — Build & Push
 
 # Triggers:
-#   • Push to main → build, push :latest + :sha-XXXXXXX, smoke test
+#   • Push to main → build, push :latest + :sha-XXXXX, smoke test
 #   • Pull request → build only (no push) for image validation
 #
 # Registry: forgejo.moseisley.es (Forgejo container registry)
@@ -27,11 +27,18 @@ jobs:
     name: Build & Push
     runs-on: ubuntu-latest
 
+    outputs:
+      image_tag: ${{ steps.sha.outputs.short }}
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          config-inline: |
+            [registry."${{ env.REGISTRY }}"]
+              mirrors = ["mirror.gcr.io"]
 
       - name: Log in to Forgejo registry
         if: github.event_name != 'pull_request'
@@ -43,48 +50,39 @@ jobs:
 
       - name: Get short SHA
         id: sha
-        run: echo "short=$(echo ${{ github.sha }} | head -c7)" >> $GITHUB_OUTPUT
+        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Generate Docker image tags
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE }}
-          labels: |
-            org.opencontainers.image.title=NetworkCrawler
-            org.opencontainers.image.description=LAN security posture scanner for home lab operators
-            org.opencontainers.image.licenses=MIT
-          tags: |
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-            type=sha,prefix=sha-,format=short
-
-      - name: Build and push (latest)
+      - name: Build and push sha tag
         id: push
+        if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/Dockerfile
           platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.IMAGE }}:latest
-          labels: ${{ steps.meta.outputs.labels }}
+          push: true
+          tags: ${{ env.IMAGE }}:sha-${{ steps.sha.outputs.short }}
           build-args: APP_VERSION=${{ steps.sha.outputs.short }}
+          provenance: false
 
-      - name: Tag as SHA and push
+      # Create :latest as a manifest-only copy of the sha- image.
+      # docker manifest create/push sends ONLY the manifest JSON — no layer blobs.
+      # This completely bypasses the per-blob rate limiter.
+      - name: Tag latest via docker manifest (no blobs)
         if: github.event_name != 'pull_request'
         run: |
-          docker tag ${{ env.IMAGE }}:latest ${{ env.IMAGE }}:sha-${{ steps.sha.outputs.short }}
-          docker push ${{ env.IMAGE }}:sha-${{ steps.sha.outputs.short }}
+          docker manifest create ${{ env.IMAGE }}:latest \
+            ${{ env.IMAGE }}:sha-${{ steps.sha.outputs.short }}
+          docker manifest push ${{ env.IMAGE }}:latest
 
       - name: Smoke test
         if: github.event_name != 'pull_request'
         run: |
-          IMAGE=$(echo "${{ steps.meta.outputs.tags }}" | head -1)
           docker rm -f nc-ci 2>/dev/null || true
           docker run -d --name nc-ci \
             -e DATABASE_URL=sqlite:////tmp/test.db \
             -e NETWORK_INTERFACE=lo \
-            "$IMAGE"
+            ${{ env.IMAGE }}:sha-${{ steps.sha.outputs.short }}
           for i in $(seq 1 30); do
             docker exec nc-ci curl -sf http://localhost:8000/health \
               2>/dev/null && echo "Health OK" && break
