@@ -32,7 +32,7 @@ markers = [
 
 [tool.coverage.run]
 source = ["app"]
-omit = ["tests/*"]
+omit = ["tests/*", "app/nightwatch/*"]
 
 [tool.coverage.report]
 fail_under = 80
