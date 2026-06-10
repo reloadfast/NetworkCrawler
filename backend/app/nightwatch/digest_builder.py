@@ -1,7 +1,8 @@
-"""Digest builder — LLM prompt assembly and response parsing.
+"""Digest builder — structured data assembly and LLM prompt generation.
 
-Takes raw data from ntopng, CrowdSec, and NetworkCrawler, assembles context,
-calls LLM, and parses structured response (findings + actions + commands).
+Takes analyzed data from ntopng_analyzer, crowdsec_analyzer, and
+cross_reference, assembles context, calls LLM, and parses structured
+response (findings + actions + commands).
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ import logging
 from typing import Any
 
 from app.nightwatch import llm_client
+from app.nightwatch.analyzers import cross_reference, crowdsec_analyzer, ntopng_analyzer
 
 logger = logging.getLogger(__name__)
 
@@ -18,14 +20,17 @@ _SYSTEM_PROMPT = """\
 You are a home network security analyst reviewing a daily digest
 of LAN traffic and threat intelligence.
 
-Your task is to analyze the provided data and return ONLY valid JSON
-with no explanation, markdown, or extra text.
+You have ALREADY received structured analysis from dedicated
+analyzers — your job is to refine, prioritize, and suggest concrete
+remediation actions.
+
+Return ONLY valid JSON with no explanation, markdown, or extra text.
 
 Output schema:
 {
   "findings": [
     {
-      "source": "networkcrawler" | "ntopng" | "crowdsec",
+      "source": "networkcrawler" | "ntopng" | "crowdsec" | "cross_reference",
       "summary": "one-line description of the event",
       "severity": "critical" | "high" | "medium" | "low",
       "device": "IP, hostname, or description"
@@ -42,156 +47,127 @@ Output schema:
 }
 
 Guidelines:
-- Return EVERY significant finding (all critical, high, and notable medium).
-- Always include actionable commands — the operator needs concrete remediation steps.
+- Merge overlapping findings from different sources.
+- Always include actionable commands — the operator needs concrete remediation.
 - Prioritize by severity in the actions array (critical first).
-- If NetworkCrawler scan found new risky devices, note them.
-- If CrowdSec shows active bans, note IPs and recommend firewall rule updates.
-- If ntopng shows unusual traffic patterns, identify the device and protocol causing it.
+- If the LLM finds the analysis insufficient, note what data would help.
 """
 
 
-def _format_data_for_prompt(ntopng_data: dict, crowdsec_data: dict, db) -> str:
-    """Format all data sources into a single prompt payload string.
+def _assemble_ntopng_section(ntopng_data: dict[str, Any]) -> str:
+    """Format pre-analyzed ntopng data into structured text."""
+    lines = ["## Ntopng Analysis"]
 
-    Args:
-        ntopng_data: Data from ntopng_fetcher.fetch_all_data().
-        crowdsec_data: Data from crowdsec_fetcher.fetch_all_data().
-        db: SQLAlchemy session (for NetworkCrawler data).
-
-    Returns:
-        Concatenated formatted string.
-    """
-    parts: list[str] = []
-
-    # ntopng section
-    lines = ["## ntopng Data"]
-    if ntopng_data.get("top_talkers"):
-        for talker in ntopng_data["top_talkers"][:10]:
-            name = talker.get("device", "unknown")
-            b_sent = talker.get("bytes_sent", 0)
-            b_recv = talker.get("bytes_recv", 0)
-            total = b_sent + b_recv
-            lines.append(f"- {name}: {total} bytes total (sent: {b_sent}, recv: {b_recv})")
+    # Run analyzer if not already analyzed
+    if isinstance(ntopng_data.get("findings"), list) and ntopng_data["findings"]:
+        analysis = ntopng_data
     else:
-        lines.append("- No top talkers available")
+        analysis = ntopng_analyzer.ntopng_analyze(ntopng_data)
 
-    protocols = ntopng_data.get("protocols", {})
-    if isinstance(protocols, dict):
-        total_bytes = sum(protocols.values())
-        if total_bytes > 0:
-            lines.append("- Protocol distribution:")
-            for proto, count in sorted(protocols.items(), key=lambda x: x[1], reverse=True)[:10]:
-                pct = count / total_bytes * 100
-                lines.append(f"  {proto}: {count} bytes ({pct:.1f}%)")
-        else:
-            lines.append("- Protocol distribution: empty or zero bytes")
+    bw_findings = getattr(analysis, "bandwidth_findings", []) or []
+    proto_findings = getattr(analysis, "protocol_findings", []) or []
+    host_findings = getattr(analysis, "host_findings", []) or []
+    flow_findings = getattr(analysis, "flow_findings", []) or []
+
+    if bw_findings:
+        lines.append("- Bandwidth anomalies:")
+        for f in bw_findings[:10]:
+            lines.append(f"  - [{f.severity}] {f.summary}")
     else:
-        lines.append("- Protocol data not available")
+        lines.append("- Bandwidth: normal")
 
-    if ntopng_data.get("alerts"):
-        lines.append("- ntopng alerts:")
-        for alert in ntopng_data["alerts"][:5]:
-            lines.append(f"  - {alert.get('alert', 'unknown')}")
-
-    if ntopng_data.get("unusual_protocols"):
-        # unusual protocols are those not in common set
-        unusual = ntopng_data["unusual_protocols"]
-        if unusual:
-            lines.append("- Unusual protocols detected:")
-            for proto, count in list(unusual.items())[:5]:
-                lines.append(f"  - {proto}: {count} bytes")
+    if proto_findings:
+        lines.append("- Protocol issues:")
+        for f in proto_findings[:10]:
+            lines.append(f"  - [{f.severity}] {f.summary}")
     else:
-        # compute if not pre-computed
-        all_proto = ntopng_data.get("protocols", {})
-        if isinstance(all_proto, dict):
-            common = {
-                "TCP",
-                "UDP",
-                "HTTP",
-                "HTTPS",
-                "DNS",
-                "ICMP",
-                "TLS",
-                "SSH",
-                "SMB",
-                "MQTT",
-                "UPnP",
-                "SNMP",
-            }
-            unusual = {k: v for k, v in all_proto.items() if k.upper() not in common and v > 0}
-            if unusual:
-                lines.append("- Unusual protocols detected:")
-                for proto, count in list(unusual.items())[:5]:
-                    lines.append(f"  - {proto}: {count} bytes")
+        lines.append("- Protocols: normal")
 
-    parts.append("\n".join(lines))
-
-    # CrowdSec section
-    lines = ["## CrowdSec Data"]
-    bans = crowdsec_data.get("bans", {})
-    if isinstance(bans, dict) and bans:
-        lines.append("- Active bans by IP:")
-        for ip, count in sorted(bans.items(), key=lambda x: x[1], reverse=True)[:10]:
-            lines.append(f"  - {ip}: {count} ban(s)")
+    if host_findings:
+        lines.append("- Host issues:")
+        for f in host_findings[:10]:
+            lines.append(f"  - [{f.severity}] {f.summary}")
     else:
-        lines.append("- No active bans")
+        lines.append("- Hosts: normal")
 
-    reasons = crowdsec_data.get("reasons", {})
-    if isinstance(reasons, dict) and reasons:
-        lines.append("- Ban reasons:")
-        for reason, count in sorted(reasons.items(), key=lambda x: x[1], reverse=True)[:5]:
-            lines.append(f"  - {reason}: {count}")
-
-    alerts = crowdsec_data.get("alerts", [])
-    if alerts and isinstance(alerts, list):
-        lines.append(f"- Active threat alerts ({len(alerts)}):")
-        for alert in alerts[:10]:
-            ip = alert.get("ip", "unknown") if isinstance(alert, dict) else "unknown"
-            reason = (
-                alert.get("reason", "unspecified") if isinstance(alert, dict) else "unspecified"
-            )
-            lines.append(f"  - {ip}: {reason}")
-
-    parts.append("\n".join(lines))
-
-    # NetworkCrawler section
-    lines = ["## NetworkCrawler Scan Data"]
-    _nctx = _get_networkcrawler_data(db)
-    if _nctx:
-        lines.append(_nctx)
+    if flow_findings:
+        lines.append("- Flow anomalies:")
+        for f in flow_findings[:5]:
+            lines.append(f"  - [{f.severity}] {f.summary}")
     else:
-        lines.append("- NetworkCrawler data not available")
+        lines.append("- Flows: normal")
 
-    parts.append("\n".join(lines))
-
-    return "\n".join(parts)
+    return "\n".join(lines)
 
 
-def _get_networkcrawler_data(db) -> str | None:
-    """Get NetworkCrawler scan data from database.
+def _assemble_crowdsec_section(crowdsec_data: dict[str, Any]) -> str:
+    """Format pre-analyzed CrowdSec data into structured text."""
+    lines = ["## CrowdSec Analysis"]
 
-    Args:
-        db: SQLAlchemy session.
+    analysis = crowdsec_analyzer.crowdsec_analyze(crowdsec_data)
 
-    Returns:
-        Formatted string or None if no database.
-    """
+    ban_findings = analysis.get("ban_findings", [])
+    scenario_findings = analysis.get("scenario_findings", [])
+    temporal_findings = analysis.get("temporal_findings", [])
+
+    if ban_findings:
+        lines.append("- Banned repeat offenders:")
+        for f in ban_findings[:10]:
+            lines.append(f"  - [{f.severity}] {f.summary}")
+    else:
+        lines.append("- No repeat offenders found")
+
+    if scenario_findings:
+        lines.append("- Attack scenarios:")
+        for f in scenario_findings[:10]:
+            lines.append(f"  - [{f.severity}] {f.summary}")
+    else:
+        lines.append("- No notable attack scenarios")
+
+    if temporal_findings:
+        lines.append("- Temporal patterns:")
+        for f in temporal_findings:
+            lines.append(f"  - [{f.severity}] {f.summary}")
+    else:
+        lines.append("- No temporal anomalies")
+
+    lines.append(f"- Total alerts: {analysis.get('total_alerts', 0)}")
+    lines.append(f"- Active bans: {analysis.get('active_ban_count', 0)}")
+
+    return "\n".join(lines)
+
+
+def _assemble_cross_ref_section(crowdsec_data: dict[str, Any], ntopng_data: dict[str, Any]) -> str:
+    """Format cross-reference findings into text."""
+    lines = ["## Cross-Reference Analysis"]
+
+    cross_findings = cross_reference.cross_reference(crowdsec_data, ntopng_data)
+
+    if cross_findings:
+        lines.append("- Correlations:")
+        for f in cross_findings:
+            lines.append(f"  - [{f.severity}] {f.summary}")
+    else:
+        lines.append("- No cross-source correlations")
+
+    return "\n".join(lines)
+
+
+def _get_networkcrawler_data(db) -> str:
+    """Get NetworkCrawler scan data from database."""
     try:
         from sqlalchemy import select
         from sqlalchemy.orm import Session
 
         from app.models.risk import Risk
-        from app.models.scan_event import ScanEvent
 
         if not isinstance(db, Session):
-            return None
+            return "- NetworkCrawler data: unavailable"
 
-        # Active risks
         risks = db.execute(select(Risk).where(Risk.acknowledged_at.is_(None))).scalars().all()
 
         if risks:
-            counts = {}
+            counts: dict[str, int] = {}
             for risk in risks:
                 sev = risk.severity
                 counts[sev] = counts.get(sev, 0) + 1
@@ -202,27 +178,8 @@ def _get_networkcrawler_data(db) -> str | None:
         else:
             return "- Active risks: 0"
 
-        # New devices
-        new_events = (
-            db.execute(
-                select(ScanEvent)
-                .where(
-                    ScanEvent.event_type == "new_device",
-                )
-                .order_by(ScanEvent.occurred_at.desc())
-                .limit(5)
-            )
-            .scalars()
-            .all()
-        )
-
-        if new_events:
-            return f"- New devices: {len(new_events)}"
-
-    except Exception:  # noqa: BLE001 — broad catch for best-effort digest generation
-        return None
-
-    return None
+    except Exception:
+        return "- NetworkCrawler data: unavailable"
 
 
 def call_llm(
@@ -234,8 +191,8 @@ def call_llm(
 
     Args:
         db: SQLAlchemy session.
-        ntopng_data: ntopng data from fetcher.
-        crowdsec_data: CrowdSec data from fetcher.
+        ntopng_data: pre-analyzed ntopng data.
+        crowdsec_data: pre-analyzed CrowdSec data.
 
     Returns:
         Dict with 'findings' and 'actions' arrays.
@@ -256,13 +213,20 @@ def call_llm(
     if not endpoint:
         raise ValueError("Nightwatch: LLM endpoint not configured")
 
-    data_text = _format_data_for_prompt(ntopng_data, crowdsec_data, db)
+    # Build structured prompt from pre-analyzed data
+    prompt_parts = []
+    prompt_parts.append(_assemble_ntopng_section(ntopng_data))
+    prompt_parts.append(_assemble_crowdsec_section(crowdsec_data))
+    prompt_parts.append(_assemble_cross_ref_section(crowdsec_data, ntopng_data))
+    prompt_parts.append(_get_networkcrawler_data(db))
+
+    context_text = "\n".join(prompt_parts)
 
     user_prompt = (
-        f"Here is the data for today's Nightwatch digest:\n\n"
-        f"{data_text}\n\n"
-        f"Analyze this data and return findings and actions as JSON. "
-        f"Include specific shell commands where actionable."
+        f"Analyze the following structured findings and return actions as JSON:\n\n"
+        f"{context_text}\n\n"
+        f"Provide findings and actions. Focus on high-impact remediation. "
+        f"Include specific commands where actionable."
     )
 
     import httpx
@@ -286,7 +250,6 @@ def call_llm(
         if isinstance(parsed, dict):
             if "findings" in parsed and "actions" in parsed:
                 return parsed
-            # Model might have wrapped in other keys
             return {
                 "findings": parsed.get("findings", []),
                 "actions": parsed.get("actions", []),
@@ -325,7 +288,7 @@ def format_findings_as_text(findings: list[dict], actions: list[dict]) -> str:
         source = finding.get("source", "unknown").upper()
         lines.append(f"{emoji} *{severity.upper()}* ({source})")
         summary = finding.get("summary", "No summary")
-        lines.append(f"*_summary: {summary}_*")
+        lines.append(f"_summary: {summary}_")
         device = finding.get("device", "")
         if device:
             lines.append(f"*Device:* `{device}`")

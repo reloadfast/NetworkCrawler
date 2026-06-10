@@ -129,6 +129,11 @@ async def security_headers(request: Request, call_next) -> Response:  # noqa: AN
 
 app.include_router(router)
 
+# Nightwatch router — placed after main router so /api/* routes below it don't shadow
+from app.routers import nightwatch as nw  # noqa: E402 — lazy import to avoid circular deps
+
+app.include_router(nw.router)  # noqa: F841
+
 
 @app.get("/health")
 async def health() -> dict:
